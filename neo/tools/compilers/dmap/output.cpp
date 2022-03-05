@@ -3,7 +3,7 @@
 
 Doom 3 GPL Source Code
 Copyright (C) 1999-2011 id Software LLC, a ZeniMax Media company.
-Copyright (C) 2013-2015 Robert Beckebans
+Copyright (C) 2013-2022 Robert Beckebans
 
 This file is part of the Doom 3 GPL Source Code (?Doom 3 Source Code?).
 
@@ -190,19 +190,20 @@ static bool MatchVert( const idDrawVert* a, const idDrawVert* b )
 		return false;
 	}
 
-	// RB begin
+	idVec3 an = a->GetNormal();
+	idVec3 bn = b->GetNormal();
+
 	// if the normal is 0 (smoothed normals), consider it a match
-	if( a->GetNormal().Length() == 0 && b->GetNormal().Length() == 0 )
+	if( an.Length() == 0 && bn.Length() == 0 )
 	{
 		return true;
 	}
 
 	// otherwise do a dot-product cosine check
-	if( ( a->GetNormal() * b->GetNormal() ) < COSINE_EPSILON )
+	if( ( an * bn ) < COSINE_EPSILON )
 	{
 		return false;
 	}
-	// RB end
 
 	return true;
 }
@@ -254,7 +255,6 @@ srfTriangles_t*	ShareMapTriVerts( const mapTri_t* tris )
 			{
 				numVerts++;
 				uTri->verts[j].xyz = dv->xyz;
-				//uTri->verts[j].SetNormal( dv->normal[0], dv->normal[1], dv->normal[2] );
 				uTri->verts[j].SetNormal( dv->GetNormal() );
 				uTri->verts[j].SetTexCoordS( dv->GetTexCoordS() );
 				uTri->verts[j].SetTexCoordT( dv->GetTexCoordT() );
@@ -270,12 +270,100 @@ srfTriangles_t*	ShareMapTriVerts( const mapTri_t* tris )
 	return uTri;
 }
 
+// RB: Average shared normals
+void SmoothMapTriVerts( mapTri_t* tris )
+{
+	mapTri_t*	step;
+	int			count;
+	int			i, j;
+	//srfTriangles_t*	uTri;
+
+	// unique the vertexes
+	count = CountTriList( tris );
+
+	idVectorSubset<idVec3, 3> vertexSubset;
+
+	idTempArray< idVec3 > vertexPositions( count * 3 );
+	idTempArray< idVec3 > vertexNormals( count * 3 );
+	vertexNormals.Zero();
+
+	// collect vertex positions
+	j = 0;
+	for( step = tris ; step ; step = step->next )
+	{
+		for( i = 0 ; i < 3 ; i++ )
+		{
+			const idDrawVert*	dv;
+
+			dv = &step->v[i];
+
+			vertexPositions[j] = dv->xyz;
+			j++;
+		}
+	}
+
+	// init vertex hash
+	//extern idCVar r_slopVertex;
+	float vertexEpsilon = 0.01f; //r_slopVertex.GetFloat();
+	float expand = 2 * 32 * vertexEpsilon;
+	idVec3 mins, maxs;
+
+	SIMDProcessor->MinMax( mins, maxs, &vertexPositions[0], vertexPositions.Num() );
+
+	mins -= idVec3( expand, expand, expand );
+	maxs += idVec3( expand, expand, expand );
+
+	vertexSubset.Init( mins, maxs, 32, 1024 );
+
+	// add normals together for each shared position
+	j = 0;
+	for( step = tris ; step ; step = step->next )
+	{
+		for( i = 0 ; i < 3 ; i++ )
+		{
+			const idDrawVert*	dv;
+
+			dv = &step->v[i];
+
+			int index = vertexSubset.FindVector( &vertexPositions[0], j, vertexEpsilon );
+
+			vertexNormals[index] += dv->GetNormal();
+			j++;
+		}
+	}
+
+	// normalize
+	for( j = 0; j < vertexNormals.Num(); j++ )
+	{
+		vertexNormals[j].Normalize();
+	}
+
+	// copy back
+	j = 0;
+	for( step = tris ; step ; step = step->next )
+	{
+		for( i = 0 ; i < 3 ; i++ )
+		{
+			idDrawVert*	dv;
+
+			dv = &step->v[i];
+
+			int index = vertexSubset.FindVector( &vertexPositions[0], j, vertexEpsilon );
+
+			idVec3& n = vertexNormals[index];
+			dv->SetNormal( n );
+
+			j++;
+		}
+	}
+}
+
 /*
 ==================
 CleanupUTriangles
 ==================
 */
-static void CleanupUTriangles( srfTriangles_t* tri )
+static void CleanupUTriangles( srfTriangles_t* tri, bool smoothShading )
 {
 	// perform cleanup operations
 
@@ -284,6 +372,12 @@ static void CleanupUTriangles( srfTriangles_t* tri )
 //	R_RemoveDuplicatedTriangles( tri );	// this may remove valid overlapped transparent triangles
 	R_RemoveDegenerateTriangles( tri );
 //	R_RemoveUnusedVerts( tri );
+
+	if( smoothShading )
+	{
+		//R_CreateVertexNormals( tri );
+		//R_DeriveTangents( tri );
+	}
 
 	R_FreeStaticTriSurfSilIndexes( tri );
 }
@@ -384,7 +478,7 @@ static bool GroupsAreSurfaceCompatible( const optimizeGroup_t* a, const optimize
 WriteOutputSurfaces
 ====================
 */
-static void WriteOutputSurfaces( int entityNum, int areaNum )
+static void WriteOutputSurfaces( int entityNum, int areaNum, bool smoothShading )
 {
 	mapTri_t*	ambient, *copy;
 	int			surfaceNum;
@@ -504,10 +598,15 @@ static void WriteOutputSurfaces( int entityNum, int areaNum )
 		surfaceNum++;
 		procFile->WriteFloatString( "\"%s\" ", ambient->material->GetName() );
 
+		if( smoothShading )
+		{
+			SmoothMapTriVerts( ambient );
+		}
+
 		uTri = ShareMapTriVerts( ambient );
 		FreeTriList( ambient );
 
-		CleanupUTriangles( uTri );
+		CleanupUTriangles( uTri, smoothShading );
 		WriteUTriangles( uTri, entity->originOffset );
 		R_FreeStaticTriSurf( uTri );
 
@@ -667,7 +766,10 @@ static void WriteOutputEntity( int entityNum )
 
 	for( i = 0 ; i < e->numAreas ; i++ )
 	{
-		WriteOutputSurfaces( entityNum, i );
+		// RB: TrenchBroom - allow smooth shading on curve brushes
+		bool smoothShading = e->mapEntity->epairs.GetBool( "_phong" );
+
+		WriteOutputSurfaces( entityNum, i, smoothShading );
 	}
 
 	// we will completely skip the portals and nodes if it is a single area
