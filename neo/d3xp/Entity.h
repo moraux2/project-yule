@@ -608,7 +608,7 @@ private:
 
 	// physics
 	// initialize the default physics
-	void					InitDefaultPhysics( const idVec3& origin, const idMat3& axis );
+	void					InitDefaultPhysics( const idVec3& origin, const idMat3& axis, const idDeclEntityDef* def );
 	// update visual position from the physics
 	void					UpdateFromPhysics( bool moveBack );
 	// get physics timestep
@@ -631,6 +631,8 @@ public:
 	float					DistanceTo( const idVec3& pos ) const;
 	idStr					GetNextKey( const char* prefix, const char* lastMatch );
 // jmarshall end
+
+	idVec3					GetOriginBrushOffset() const;
 
 	void					Event_GetName();
 	void					Event_SetName( const char* name );

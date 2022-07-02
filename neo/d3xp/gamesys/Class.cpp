@@ -33,8 +33,8 @@ instancing of objects.
 
 */
 
-#pragma hdrstop
 #include "precompiled.h"
+#pragma hdrstop
 
 
 #include "../Game_local.h"
@@ -1506,6 +1506,23 @@ void idClass::ExportScriptEvents_f( const idCmdArgs& args )
 	}
 
 	delete[] set;
+}
+
+void idClass::EditLights_f( const idCmdArgs& args )
+{
+	if( g_editEntityMode.GetInteger() != 1 )
+	{
+		g_editEntityMode.SetInteger( 1 );
+
+		// turn off com_smp multithreading so we can load and check light textures on main thread
+		com_editors |= EDITOR_LIGHT;
+	}
+	else
+	{
+		g_editEntityMode.SetInteger( 0 );
+
+		com_editors &= ~EDITOR_LIGHT;
+	}
 }
 // RB end
 

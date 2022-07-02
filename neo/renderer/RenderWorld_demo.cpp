@@ -28,8 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#pragma hdrstop
 #include "precompiled.h"
+#pragma hdrstop
 
 #include "RenderCommon.h"
 
@@ -719,7 +719,7 @@ void	idRenderWorldLocal::WriteRenderLight( idDemoFile* f, qhandle_t handle, cons
 ReadRenderLight
 ================
 */
-void	idRenderWorldLocal::ReadRenderLight( )
+void	idRenderWorldLocal::ReadRenderLight()
 {
 	renderLight_t	light;
 	int				index, i;

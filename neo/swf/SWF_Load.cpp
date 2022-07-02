@@ -26,8 +26,8 @@ If you have questions concerning this license or the applicable additional terms
 
 ===========================================================================
 */
-#pragma hdrstop
 #include "precompiled.h"
+#pragma hdrstop
 #include "../renderer/Font.h"
 #include "../renderer/Image.h"
 //#include "../../libs/rapidjson/include/rapidjson/document.h"
@@ -134,7 +134,7 @@ bool idSWF::LoadSWF( const char* fullpath )
 	// now that all images have been loaded, write out the combined image
 	idStr atlasFileName = "generated/";
 	atlasFileName += fullpath;
-	atlasFileName.SetFileExtension( ".tga" );
+	atlasFileName.SetFileExtension( ".png" );
 
 	WriteSwfImageAtlas( atlasFileName );
 

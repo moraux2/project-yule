@@ -28,8 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#pragma hdrstop
 #include "precompiled.h"
+#pragma hdrstop
 
 #include "RenderCommon.h"
 
@@ -156,6 +156,11 @@ void idVertexCache::Shutdown()
 		frameData[i].indexBuffer.FreeBufferObject();
 		frameData[i].jointBuffer.FreeBufferObject();
 	}
+
+	// SRS - free static buffers to avoid Vulkan validation layer errors on shutdown
+	staticData.vertexBuffer.FreeBufferObject();
+	staticData.indexBuffer.FreeBufferObject();
+	staticData.jointBuffer.FreeBufferObject();
 }
 
 /*

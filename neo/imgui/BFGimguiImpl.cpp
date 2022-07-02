@@ -9,8 +9,8 @@
  * This file is under MIT License, like the original code from ImGui.
  */
 
-#pragma hdrstop
 #include "precompiled.h"
+#pragma hdrstop
 
 #include "BFGimgui.h"
 #include "renderer/RenderCommon.h"
@@ -284,14 +284,14 @@ void NotifyDisplaySizeChanged( int width, int height )
 			Init( width, height );
 
 			// reuse the default ImGui font
-			idImage* image = globalImages->GetImage( "_imguiFont" );
+			const idMaterial* image = declManager->FindMaterial( "_imguiFont" );
 
 			ImGuiIO& io = ImGui::GetIO();
 
 			byte* pixels = NULL;
 			io.Fonts->GetTexDataAsRGBA32( &pixels, &width, &height );
 
-			io.Fonts->TexID = ( void* )( intptr_t )image->GetImGuiTextureID();
+			io.Fonts->TexID = ( void* )image;
 		}
 	}
 }

@@ -46,9 +46,8 @@ If you have questions concerning this license or the applicable additional terms
 ===============================================================================
 */
 
-#pragma hdrstop
 #include "precompiled.h"
-
+#pragma hdrstop
 
 #include "CollisionModel_local.h"
 
@@ -66,7 +65,6 @@ idHashIndex* 					cm_edgeHash;
 
 idBounds						cm_modelBounds;
 int								cm_vertexShift;
-
 
 idCVar preLoad_Collision( "preLoad_Collision", "1", CVAR_SYSTEM | CVAR_BOOL, "preload collision beginlevelload" );
 
@@ -3076,7 +3074,7 @@ void idCollisionModelManagerLocal::ConvertPatch( cm_model_t* model, const idMapP
 idCollisionModelManagerLocal::ConvertBrushSides
 ================
 */
-void idCollisionModelManagerLocal::ConvertBrushSides( cm_model_t* model, const idMapBrush* mapBrush, int primitiveNum )
+void idCollisionModelManagerLocal::ConvertBrushSides( cm_model_t* model, const idMapBrush* mapBrush, int primitiveNum, const idVec3& originOffset )
 {
 	int i, j;
 	idMapBrushSide* mapSide;
@@ -3090,6 +3088,10 @@ void idCollisionModelManagerLocal::ConvertBrushSides( cm_model_t* model, const i
 	{
 		planes[i] = mapBrush->GetSide( i )->GetPlane();
 		planes[i].FixDegeneracies( DEGENERATE_DIST_EPSILON );
+
+		// Admer: also offset em
+		idVec3 reverseOriginOffset = originOffset * -1.0f;
+		planes[i].TranslateSelf( reverseOriginOffset );
 	}
 
 	// create a collision polygon for each brush side
@@ -3123,7 +3125,7 @@ void idCollisionModelManagerLocal::ConvertBrushSides( cm_model_t* model, const i
 idCollisionModelManagerLocal::ConvertBrush
 ================
 */
-void idCollisionModelManagerLocal::ConvertBrush( cm_model_t* model, const idMapBrush* mapBrush, int primitiveNum )
+void idCollisionModelManagerLocal::ConvertBrush( cm_model_t* model, const idMapBrush* mapBrush, int primitiveNum, const idVec3& originOffset )
 {
 	int i, j, contents;
 	idBounds bounds;
@@ -3142,6 +3144,10 @@ void idCollisionModelManagerLocal::ConvertBrush( cm_model_t* model, const idMapB
 	{
 		planes[i] = mapBrush->GetSide( i )->GetPlane();
 		planes[i].FixDegeneracies( DEGENERATE_DIST_EPSILON );
+
+		// Admer: also offset em
+		idVec3 reverseOriginOffset = originOffset * -1.0f;
+		planes[i].TranslateSelf( reverseOriginOffset );
 	}
 
 	// we are only getting the bounds for the brush so there's no need
@@ -3709,6 +3715,7 @@ void idCollisionModelManagerLocal::WriteBinaryModelToFile( cm_model_t* model, id
 	file->WriteBig( model->numSharpEdges );
 	file->WriteBig( model->numRemovedPolys );
 	file->WriteBig( model->numMergedPolys );
+
 	for( int i = 0; i < model->numVertices; i++ )
 	{
 		file->WriteBig( model->vertices[i].p );
@@ -3982,6 +3989,7 @@ cm_model_t* idCollisionModelManagerLocal::CollisionModelForMapEntity( const idMa
 
 	cm_model_t* model;
 	idBounds bounds;
+	idVec3 originOffset = mapEnt->originOffset;
 	const char* name;
 	int i, brushCount;
 
@@ -4036,7 +4044,7 @@ cm_model_t* idCollisionModelManagerLocal::CollisionModelForMapEntity( const idMa
 		mapPrim = mapEnt->GetPrimitive( i );
 		if( mapPrim->GetType() == idMapPrimitive::TYPE_BRUSH )
 		{
-			ConvertBrush( model, static_cast<idMapBrush*>( mapPrim ), i );
+			ConvertBrush( model, static_cast<idMapBrush*>( mapPrim ), i, originOffset );
 			continue;
 		}
 
@@ -4096,7 +4104,7 @@ cm_model_t* idCollisionModelManagerLocal::CollisionModelForMapEntity( const idMa
 		}
 		if( mapPrim->GetType() == idMapPrimitive::TYPE_BRUSH )
 		{
-			ConvertBrushSides( model, static_cast<idMapBrush*>( mapPrim ), i );
+			ConvertBrushSides( model, static_cast<idMapBrush*>( mapPrim ), i, originOffset );
 			continue;
 		}
 
@@ -4248,7 +4256,7 @@ void idCollisionModelManagerLocal::ListModels()
 idCollisionModelManagerLocal::BuildModels
 ================
 */
-void idCollisionModelManagerLocal::BuildModels( const idMapFile* mapFile )
+void idCollisionModelManagerLocal::BuildModels( const idMapFile* mapFile, bool ignoreOldCollisionFile )
 {
 	int i;
 	const idMapEntity* mapEnt;
@@ -4256,9 +4264,8 @@ void idCollisionModelManagerLocal::BuildModels( const idMapFile* mapFile )
 	idTimer timer;
 	timer.Start();
 
-	if( !LoadCollisionModelFile( mapFile->GetName(), mapFile->GetGeometryCRC() ) )
+	if( ignoreOldCollisionFile || !LoadCollisionModelFile( mapFile->GetName(), mapFile->GetGeometryCRC() ) )
 	{
-
 		if( !mapFile->GetNumEntities() )
 		{
 			return;
@@ -4332,7 +4339,7 @@ void idCollisionModelManagerLocal::Preload( const char* mapName )
 			const preloadEntry_s& p = manifest.GetPreloadByIndex( i );
 			if( p.resType == PRELOAD_COLLISION )
 			{
-				LoadModel( p.resourceName );
+				LoadModel( p.resourceName, false );
 				numLoaded++;
 			}
 		}
@@ -4347,7 +4354,7 @@ void idCollisionModelManagerLocal::Preload( const char* mapName )
 idCollisionModelManagerLocal::LoadMap
 ================
 */
-void idCollisionModelManagerLocal::LoadMap( const idMapFile* mapFile )
+void idCollisionModelManagerLocal::LoadMap( const idMapFile* mapFile, bool ignoreOldCollisionFile )
 {
 
 	if( mapFile == NULL )
@@ -4390,7 +4397,7 @@ void idCollisionModelManagerLocal::LoadMap( const idMapFile* mapFile )
 	common->UpdateLevelLoadPacifier();
 
 	// build collision models
-	BuildModels( mapFile );
+	BuildModels( mapFile, ignoreOldCollisionFile );
 
 	common->UpdateLevelLoadPacifier();
 
@@ -4536,7 +4543,7 @@ bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygo
 idCollisionModelManagerLocal::LoadModel
 ==================
 */
-cmHandle_t idCollisionModelManagerLocal::LoadModel( const char* modelName )
+cmHandle_t idCollisionModelManagerLocal::LoadModel( const char* modelName, const bool precache )
 {
 	int handle;
 
@@ -4592,6 +4599,12 @@ cmHandle_t idCollisionModelManagerLocal::LoadModel( const char* modelName )
 		{
 			common->Warning( "idCollisionModelManagerLocal::LoadModel: collision file for '%s' contains different model", modelName );
 		}
+	}
+
+	// if only precaching .cm files do not waste memory converting render models
+	if( precache )
+	{
+		return 0;
 	}
 
 	// try to load a .ASE or .LWO model and convert it to a collision model
@@ -4773,7 +4786,7 @@ bool idCollisionModelManagerLocal::TrmFromModel( const char* modelName, idTraceM
 {
 	cmHandle_t handle;
 
-	handle = LoadModel( modelName );
+	handle = LoadModel( modelName, false );
 	if( !handle )
 	{
 		common->Printf( "idCollisionModelManagerLocal::TrmFromModel: model %s not found.\n", modelName );
