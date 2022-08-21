@@ -774,8 +774,9 @@ bool idAASFileLocal::Write( const idStr& fileName, unsigned int mapFileCRC )
 		common->Error( "Error opening %s", fileName.c_str() );
 		return false;
 	}
-
-	aasFile->WriteFloatString( "%s \"%s\"\n\n", AAS_FILEID, AAS_FILEVERSION );
+// jmarshall
+	aasFile->WriteFloatString( "%s \"%s\"\n\n", AAS_FILEID, AAS_ICE_FILEVERSION );
+// jmarshall end
 	aasFile->WriteFloatString( "%u\n\n", mapFileCRC );
 
 	// write out the settings
@@ -840,8 +841,10 @@ bool idAASFileLocal::Write( const idStr& fileName, unsigned int mapFileCRC )
 		{
 			num++;
 		}
-		aasFile->WriteFloatString( "\t%d ( %d %d %d %d %d %d ) %d {\n", i, areas[i].flags, areas[i].contents,
-								   areas[i].firstFace, areas[i].numFaces, areas[i].cluster, areas[i].clusterAreaNum, num );
+// jmarshall - store start edge and numedges.
+		aasFile->WriteFloatString( "\t%d ( %d %d %d %d %d %d %d %d ) %d {\n", i, areas[i].flags, areas[i].contents,
+								   areas[i].firstFace, areas[i].numFaces, areas[i].cluster, areas[i].clusterAreaNum, areas[i].firstEdge, areas[i].numEdges, num );
+// jmarshall end
 		for( reach = areas[i].reach; reach; reach = reach->next )
 		{
 			Reachability_Write( aasFile, reach );
@@ -1153,6 +1156,14 @@ bool idAASFileLocal::ParseAreas( idLexer& src )
 		area.numFaces = src.ParseInt();
 		area.cluster = src.ParseInt();
 		area.clusterAreaNum = src.ParseInt();
+// jmarshall
+		if( HasNewFeatures() )
+		{
+			area.firstEdge = src.ParseInt();
+			area.numEdges = src.ParseInt();
+		}
+// jmarshall end
+
 		src.ExpectTokenString( ")" );
 		areas.Append( area );
 		ParseReachabilities( src, i );
@@ -1313,12 +1324,24 @@ bool idAASFileLocal::Load( const idStr& fileName, unsigned int mapFileCRC )
 		common->Warning( "Not an AAS file: '%s'", name.c_str() );
 		return false;
 	}
-
-	if( !src.ReadToken( &token ) || token != AAS_FILEVERSION )
+// jmarshall
+	// Check the ident.
+	src.ReadToken( &token );
+	if( token == AAS_ICE_FILEVERSION )
 	{
-		common->Warning( "AAS file '%s' has version %s instead of %s", name.c_str(), token.c_str(), AAS_FILEVERSION );
+		hasNewFeatures = true;
+	}
+	else if( token == AAS_FILEVERSION )
+	{
+		hasNewFeatures = false;
+		common->Warning( "Loading legacy AAS file!\n" );
+	}
+	else
+	{
+		common->Warning( "AAS file '%s' has version %s instead of %s", name.c_str(), token.c_str(), AAS_ICE_FILEVERSION );
 		return false;
 	}
+// jmarshall end
 
 	if( !src.ExpectTokenType( TT_NUMBER, TT_INTEGER, &token ) )
 	{

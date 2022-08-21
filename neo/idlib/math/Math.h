@@ -29,6 +29,10 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __MATH_MATH_H__
 #define __MATH_MATH_H__
 
+class idVec2;
+class idVec3;
+class idVec4;
+
 /*
 ===============================================================================
 
@@ -359,6 +363,29 @@ class idMath
 public:
 
 	static void					Init();
+
+	static float				AngleMod( float a );
+	static float				RSqrt( float x );
+
+	static idVec3				CrossProduct( const idVec3& a, const idVec3& b );
+	static float				DistanceSquared( idVec3 p1, idVec3 p2 );
+	static float				Distance( idVec3 p1, idVec3 p2 );
+	static idVec3				ReflectVector( idVec3 vector, idVec3 normal );
+	static idVec4				CreateVector( float x, float y, float z, float w );
+	static idVec3				CreateVector( float x, float y, float z );
+
+	static int					Rand()
+	{
+		return rand();
+	}
+	static float				FRand()
+	{
+		return Rand() / ( float )RAND_MAX;
+	}
+	static float				FRandRange( float min, float max )
+	{
+		return min + ( max - min ) * FRand();
+	}
 
 	static float				InvSqrt( float x );			// inverse square root with 32 bits precision, returns huge number when x == 0.0
 	static float				InvSqrt16( float x );		// inverse square root with 16 bits precision, returns huge number when x == 0.0
@@ -1592,6 +1619,73 @@ inline float idMath::LerpToWithScale( const float cur, const float dest, const f
 	}
 	return cur + ( dest - cur ) * scale;
 }
+/*
+========================
+idMath::Ftob
+========================
+*/
+ID_INLINE float idMath::AngleMod( float a )
+{
+	a = ( 360.0 / 65536 ) * ( ( int )( a * ( 65536 / 360.0 ) ) & 65535 );
+	return a;
+}
 
+ID_INLINE float idMath::RSqrt( float x )
+{
+
+	long i;
+	float y, r;
+
+	y = x * 0.5f;
+	i = *reinterpret_cast<long*>( &x );
+	i = 0x5f3759df - ( i >> 1 );
+	r = *reinterpret_cast<float*>( &i );
+	r = r * ( 1.5f - r * r * y );
+	return r;
+}
+
+
+// RAVEN BEGIN
+// jscott: fast and reliable random routines
+
+// This is the VC libc version of rand() without multiple seeds per thread or 12 levels
+// of subroutine calls.
+// Both calls have been designed to minimise the inherent number of float <--> int
+// conversions and the additional math required to get the desired value.
+// eg the typical tint = (rand() * 255) / 32768
+// becomes tint = rvRandom::irand( 0, 255 )
+
+class rvRandom
+{
+private:
+	static	unsigned long	mSeed;
+public:
+	rvRandom( void )
+	{
+		mSeed = 0x89abcdef;
+	}
+
+	// for a non seed based init
+	static	int				Init( void );
+
+	// Init the seed to a unique number
+	static	void			Init( unsigned long seed )
+	{
+		mSeed = seed;
+	}
+
+	// Returns a float min <= x < max (exclusive; will get max - 0.00001; but never max)
+	static	float			flrand( float min, float max );
+
+	// Returns a float min <= 0 < 1.0
+	static	float			flrand();
+
+	static	float			flrand( const idVec2& v );
+
+	// Returns an integer min <= x <= max (ie inclusive)
+	static	int				irand( int min, int max );
+};
+
+// RAVEN END
 
 #endif /* !__MATH_MATH_H__ */

@@ -55,7 +55,6 @@ static idStr FindUnusedFileName( const char* format )
 	return filename;
 }
 
-//extern idCVar com_smp;            // SRS - No longer require non-smp mode for demos
 
 void WriteDeclCache( idDemoFile* f, int demoCategory, int demoCode, declType_t  declType )
 {
@@ -106,8 +105,6 @@ void idCommonLocal::StartRecordingRenderDemo( const char* demoName )
 
 	console->Close();
 
-//  com_smp.SetInteger( 0 );        // SRS - No longer require non-smp mode for demos
-
 	writeDemo = new( TAG_SYSTEM ) idDemoFile;
 	if( !writeDemo->OpenForWriting( demoName ) )
 	{
@@ -146,7 +143,6 @@ void idCommonLocal::StopRecordingRenderDemo()
 	common->Printf( "stopped recording %s.\n", writeDemo->GetName() );
 	delete writeDemo;
 	writeDemo = NULL;
-//	com_smp.SetInteger( 1 ); // motorsep 12-30-2014; turn multithreading back on;  SRS - No longer require non-smp mode for demos
 }
 
 /*
