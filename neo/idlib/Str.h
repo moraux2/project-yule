@@ -286,6 +286,13 @@ public:
 	void				ExtractFileExtension( idStr& dest ) const;		// copy the file extension to another string
 	bool				CheckExtension( const char* ext );
 
+	void				StripDoubleQuotes();
+
+// RAVEN BEGIN
+// abahr
+	void				Split( idList<idStr>& list, const char delimiter = ',', const char groupDelimiter = '\'' );
+// RAVEN END
+
 	// char * methods to replace library functions
 	static int			Length( const char* s );
 	static char* 		ToLower( char* s );
@@ -354,6 +361,7 @@ public:
 	int					DynamicMemoryUsed() const;
 	static idStr		FormatNumber( int number );
 
+	static void			Split( const char* source, idList<idStr>& list, const char delimiter = ',', const char groupDelimiter = '\'' );
 protected:
 	int					len;
 	char* 				data;
