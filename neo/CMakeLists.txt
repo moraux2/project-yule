@@ -919,6 +919,15 @@ set(GAMED3XP_SOURCES
 file(GLOB GAMED3XP_AI_INCLUDES d3xp/ai/*.h)
 file(GLOB GAMED3XP_AI_SOURCES d3xp/ai/*.cpp)
 
+file(GLOB GAMED3XP_MONSTER_INCLUDES d3xp/monsters/*.h)
+file(GLOB GAMED3XP_MONSTER_SOURCES d3xp/monsters/*.cpp)
+
+file(GLOB GAMED3XP_BOTS_INCLUDES d3xp/bots/*.h)
+file(GLOB GAMED3XP_BOTS_SOURCES d3xp/bots/*.cpp)
+
+file(GLOB GAMED3XP_WEAPON_INCLUDES d3xp/weapons/*.h)
+file(GLOB GAMED3XP_WEAPON_SOURCES d3xp/weapons/*.cpp)
+
 file(GLOB GAMED3XP_ANIM_INCLUDES d3xp/anim/*.h)
 file(GLOB GAMED3XP_ANIM_SOURCES d3xp/anim/*.cpp)
 
@@ -926,6 +935,8 @@ file(GLOB GAMED3XP_GAMESYS_INCLUDES d3xp/gamesys/*.h)
 set(GAMED3XP_GAMESYS_SOURCES
 	#d3xp/gamesys/Callbacks.cpp
 	d3xp/gamesys/Class.cpp
+	d3xp/gamesys/State.cpp
+	d3xp/gamesys/GameTypeInfo.cpp
 	#d3xp/gamesys/DebugGraph.cpp
 	d3xp/gamesys/Event.cpp
 	d3xp/gamesys/SaveGame.cpp
@@ -1319,6 +1330,15 @@ source_group("game-d3xp" FILES ${GAMED3XP_SOURCES})
 source_group("game-d3xp\\ai" FILES ${GAMED3XP_AI_INCLUDES})
 source_group("game-d3xp\\ai" FILES ${GAMED3XP_AI_SOURCES})
 
+source_group("game-d3xp\\monsters" FILES ${GAMED3XP_MONSTER_INCLUDES})
+source_group("game-d3xp\\monsters" FILES ${GAMED3XP_MONSTER_SOURCES})
+
+source_group("game-d3xp\\bots" FILES ${GAMED3XP_BOTS_INCLUDES})
+source_group("game-d3xp\\bots" FILES ${GAMED3XP_BOTS_SOURCES})
+
+source_group("game-d3xp\\weapons" FILES ${GAMED3XP_WEAPON_INCLUDES})
+source_group("game-d3xp\\weapons" FILES ${GAMED3XP_WEAPON_SOURCES})
+
 source_group("game-d3xp\\anim" FILES ${GAMED3XP_ANIM_INCLUDES})
 source_group("game-d3xp\\anim" FILES ${GAMED3XP_ANIM_SOURCES})
 
@@ -1470,7 +1490,10 @@ set(RBDOOM3_INCLUDES
 			${GAMED3XP_AI_INCLUDES} 
 			${GAMED3XP_ANIM_INCLUDES} 
 			${GAMED3XP_GAMESYS_INCLUDES} 
+			${GAMED3XP_BOTS_INCLUDES}
 			${GAMED3XP_MENUS_INCLUDES}
+			${GAMED3XP_MONSTER_INCLUDES}
+			${GAMED3XP_WEAPON_INCLUDES}
 			${GAMED3XP_PHYSICS_INCLUDES}
 			${GAMED3XP_SCRIPT_INCLUDES}
 			)
@@ -1680,7 +1703,7 @@ if(MSVC)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/ShadowShared.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/RenderLog.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/Vulkan/vma.cpp)
-		#list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES d3xp/gamesys/Class.cpp)
+		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES d3xp/gamesys/Class.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/framework/precompiled.cpp)
 	
 		#foreach( src_file ${RBDOOM3_PRECOMPILED_SOURCES} )
