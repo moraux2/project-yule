@@ -163,7 +163,7 @@ void idBotWeaponInfoManager::ParseProjectileInfo( idParser& parser, projectilein
 idBotWeaponInfoManager::ParseWeaponInfo
 ========================
 */
-void idBotWeaponInfoManager::ParseWeaponInfo( idParser& parser, weaponinfo_t& newWeaponInfo )
+void idBotWeaponInfoManager::ParseWeaponInfo( idParser& parser, bot_weaponinfo_t& newWeaponInfo )
 {
 	idToken token;
 	idToken valueToken;
@@ -258,7 +258,7 @@ void idBotWeaponInfoManager::LoadWeaponConfig( char* filename )
 	{
 		if( token == "weaponinfo" )
 		{
-			weaponinfo_t newWeaponInfo;
+			bot_weaponinfo_t newWeaponInfo;
 			ParseWeaponInfo( parser, newWeaponInfo );
 
 			if( newWeaponInfo.number < 0 || newWeaponInfo.number >= BOT_MAX_WEAPONS )
@@ -398,7 +398,7 @@ int idBotWeaponInfoManager::BotLoadWeaponWeights( int weaponstate, char* filenam
 idBotWeaponInfoManager::BotGetWeaponInfo
 =====================
 */
-void idBotWeaponInfoManager::BotGetWeaponInfo( int weaponstate, int weapon, weaponinfo_t* weaponinfo )
+void idBotWeaponInfoManager::BotGetWeaponInfo( int weaponstate, int weapon, bot_weaponinfo_t* weaponinfo )
 {
 	bot_weaponstate_t* ws;
 
