@@ -109,6 +109,7 @@ model monster_zombie_bernie {
 
 entityDef monster_zombie_bernie {
 	"inherit"						"zombie_default"
+	"spawnclass"					"iceMonsterZombieBernie"
 	"scriptobject"					"monster_zombie_bernie"
 	"ragdoll"						"monster_zombie_bernie"
 	"model"							"monster_zombie_bernie"
