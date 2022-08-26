@@ -60,7 +60,7 @@ entityDef weapon_machinegun {
 	"inv_desc"					"#str_02535"
 	"display_name"				"#str_02476"
 
-	"weapon_scriptobject"		"weapon_machinegun"
+	"weapon_class"				"iceWeaponMachineGun"
 	"def_projectile"			"projectile_bullet_machinegun"
 	"ammoType"					"ammo_clip"
 	"ammoRequired"				"1"
@@ -147,7 +147,8 @@ model viewmodel_machinegun {
 }
 
 entityDef damage_bullet_machinegun {
-	"damage"			"9"
+	"minDamage"			"7"
+	"maxDamage"			"9"
 	"kickDir"			"1 0 0"
 
 	"mtr_blob"			"genericDamage"

@@ -51,6 +51,8 @@ entityDef weapon_shotgun {
 	"model_world" 				"worldmodel_shotgun"
 	"joint_attach"				"SHOTGUN_ATTACHER"
 	"def_dropItem"				"moveable_item_shotgun"
+	
+	"modelindex"				"MODELINDEX_SHOTGUN"
 
 	"inv_name"					"#str_00243"
 	"inv_weapon"				"weapon_shotgun"
@@ -63,7 +65,7 @@ entityDef weapon_shotgun {
 	"pdaIcon"					"guis/assets/hud/icons/shotgun_new.tga"	
 	"hudIcon"					"guis/assets/hud/icons/shotgunw.tga"	
 
-	"weapon_scriptobject"		"weapon_shotgun"
+	"weapon_class"				"iceWeaponShotgun"
 	"def_projectile"			"projectile_bullet_shotgun"
 	"ammoType"					"ammo_shells"
 	"ammoRequired"				"1"
@@ -169,7 +171,9 @@ model viewmodel_shotgun {
 }
 
 entityDef	damage_shotgun {
-	"damage"			"14"
+	"minDamage"			"9"
+	"maxDamage"			"14"
+
 	"kickDir"			"1 0 0"
 
 	"mtr_blob"			"genericDamage"

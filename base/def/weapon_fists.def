@@ -36,7 +36,7 @@ entityDef weapon_fists {
 	"pdaIcon"					"guis/assets/hud/icons/fists_new.tga"
 	"hudIcon"					"guis/assets/hud/icons/fistw.tga"	
 
-	"weapon_scriptobject"		"weapon_fists"
+	"weapon_class"				"iceWeaponFist"
 	"def_melee"					"damage_fists"
 	"melee_distance"			"48"
 	"ammoType"					""

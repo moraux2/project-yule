@@ -102,6 +102,8 @@ entityDef weapon_shotgun_double {
 	"editor_maxs"				"16 16 32"
 	"editor_usage"				"Double Barrel Shotgun"
 	"editor_rotatable"		"1"
+	
+	"modelindex"				"MODELINDEX_SHOTGUN"
 
 	"spawnclass"				"idItem"
 	"size"						"32 32 32"
@@ -123,7 +125,7 @@ entityDef weapon_shotgun_double {
 	"display_name"				"#str_00100191"
 	"hudIcon"					"guis/assets/hud/icons/doublebarrelw.tga"	
 
-	"weapon_scriptobject"		"weapon_shotgun_double"
+	"weapon_class"				"iceWeaponDoubleShotgun"
 	"def_projectile"			"projectile_bullet_shotgun_double"
 	"ammoType"					"ammo_shells"
 	"ammoRequired"				"1"
@@ -180,7 +182,9 @@ entityDef moveable_item_shotgun_double {
 }
 
 entityDef	damage_shotgun_double {
-	"damage"			"16"
+	"minDamage"			"12"
+	"maxDamage"			"20"
+
 	"kickDir"			"1 0 0"
 
 	"mtr_blob"			"genericDamage"

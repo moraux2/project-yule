@@ -41,7 +41,6 @@ entityDef weapon_chainsaw {
 	"editor_usage"				"Chainsaw"
 	"editor_rotatable"			"1"
 
-	"spawnclass"				"idItem"
 	"size"						"32 32 32"
 	"model"						"models/weapons/chainsaw/w_chainsaw.lwo"
 	"model_view" 				"viewmodel_chainsaw"
@@ -59,7 +58,7 @@ entityDef weapon_chainsaw {
 	"pdaIcon"					"guis/assets/hud/icons/chainsaw_new.tga"
 	"hudIcon"					"guis/assets/hud/icons/chainsaww.tga"	
 
-	"weapon_scriptobject"		"weapon_chainsaw"
+	"weapon_class"				"iceWeaponChainsaw"
 	"def_melee"					"damage_chainsaw"
 	"melee_distance"			"64"
 	"ammoType"					""
