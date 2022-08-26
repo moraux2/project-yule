@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2021 Justin Marshall
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -72,7 +73,7 @@ class idAASCallback
 {
 public:
 	virtual						~idAASCallback() {};
-	virtual	bool				TestArea( const class idAAS* aas, int areaNum ) = 0;
+	virtual	bool				AreaIsGoal( const class idAAS* aas, int areaNum ) = 0;
 };
 
 typedef int aasHandle_t;
@@ -100,6 +101,16 @@ public:
 	virtual void				PushPointIntoAreaNum( int areaNum, idVec3& origin ) const = 0;
 	// Returns a reachable point inside the given area.
 	virtual idVec3				AreaCenter( int areaNum ) const = 0;
+// jmarshall
+	// Returns the default search bounds.
+	virtual const idBounds&		DefaultSearchBounds() const = 0;
+
+	virtual int					AdjustPositionAndGetArea( idVec3& origin ) = 0;
+
+	virtual void				ShowArea( const idVec3& origin ) const = 0;
+
+	virtual void				DrawAreas() const = 0;
+// jmarshall end
 	// Returns the area flags.
 	virtual int					AreaFlags( int areaNum ) const = 0;
 	// Returns the travel flags for traveling through the area.
@@ -142,6 +153,11 @@ public:
 	virtual void				ShowFlyPath( const idVec3& origin, int goalAreaNum, const idVec3& goalOrigin ) const = 0;
 	// Find the nearest goal which satisfies the callback.
 	virtual bool				FindNearestGoal( aasGoal_t& goal, int areaNum, const idVec3 origin, const idVec3& target, int travelFlags, aasObstacle_t* obstacles, int numObstacles, idAASCallback& callback ) const = 0;
+
+// jmarshall
+	virtual idAASFile*			GetAASFile() = 0;
+	virtual void				DrawArea( int areaNum ) const = 0;
+// jmarshall end
 };
 
 #endif /* !__AAS_H__ */

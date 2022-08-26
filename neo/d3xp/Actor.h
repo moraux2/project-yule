@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2021 Justin Marshall
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -205,6 +206,7 @@ public:
 	void					UpdateAnimState();
 	void					SetAnimState( int channel, const char* name, int blendFrames );
 	const char* 			GetAnimState( int channel ) const;
+	idAnimState&			GetAnimStateVar( int channel ); // jmarshall
 	bool					InAnimState( int channel, const char* name ) const;
 	const char* 			WaitState() const;
 	void					SetWaitState( const char* _waitstate );
@@ -263,6 +265,8 @@ protected:
 	idAnimState				torsoAnim;
 	idAnimState				legsAnim;
 
+	rvStateThread			stateThread;
+
 	bool					allowPain;
 	bool					allowEyeFocus;
 	bool					finalBoss;
@@ -282,7 +286,9 @@ protected:
 	// copies animation from body to head joints
 	void					CopyJointsFromBodyToHead();
 
-private:
+	bool					AnimDone( int channel, int blendFrames );
+
+protected:
 	void					SyncAnimChannels( int channel, int syncToChannel, int blendFrames );
 	void					FinishSetup();
 	void					SetupHead();
@@ -317,7 +323,9 @@ private:
 	void					Event_AnimDone( int channel, int blendFrames );
 	void					Event_HasAnim( int channel, const char* name );
 	void					Event_CheckAnim( int channel, const char* animname );
+	idStr					ChooseAnim( int channel, const char* animname );
 	void					Event_ChooseAnim( int channel, const char* animname );
+	float					AnimLength( int channel, const char* animname );
 	void					Event_AnimLength( int channel, const char* animname );
 	void					Event_AnimDistance( int channel, const char* animname );
 	void					Event_HasEnemies();

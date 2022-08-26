@@ -227,7 +227,9 @@ void idGameLocal::SyncPlayersWithLobbyUsers( bool initial )
 
 
 		// spawn the player
-		SpawnPlayer( freePlayerDataIndex );
+// jmarshall - bot support
+		SpawnPlayer( freePlayerDataIndex, lobby.GetLobbyUserIsBot( lobbyUserID ), lobby.GetLobbyUserName( lobbyUserID ) );
+// jmarshall end
 
 		common->UpdateLevelLoadPacifier();
 
@@ -906,7 +908,9 @@ void idGameLocal::ClientReadSnapshot( const idSnapShot& ss )
 			if( entityNumber < MAX_CLIENTS )
 			{
 				commonLocal.GetUCmdMgr().ResetPlayer( entityNumber );
-				SpawnPlayer( entityNumber );
+// jmarshall - should we tell the client this is a bot?
+				SpawnPlayer( entityNumber, false, NULL );
+// jmarshall end
 				ent = entities[ entityNumber ];
 				ent->FreeModelDef();
 			}
@@ -1097,8 +1101,8 @@ void idGameLocal::ClientProcessReliableMessage( int type, const idBitMsg& msg )
 		{
 			idMultiplayerGame::msg_evt_t msg_evt = ( idMultiplayerGame::msg_evt_t )msg.ReadByte();
 			int parm1, parm2;
-			parm1 = msg.ReadByte( );
-			parm2 = msg.ReadByte( );
+			parm1 = msg.ReadByte();
+			parm2 = msg.ReadByte();
 			mpGame.PrintMessageEvent( msg_evt, parm1, parm2 );
 			break;
 		}
@@ -1132,7 +1136,7 @@ void idGameLocal::ClientProcessReliableMessage( int type, const idBitMsg& msg )
 		}
 		case GAME_RELIABLE_MESSAGE_TOURNEYLINE:
 		{
-			int line = msg.ReadByte( );
+			int line = msg.ReadByte();
 			idPlayer* p = static_cast< idPlayer* >( entities[ GetLocalClientNum() ] );
 			if( !p )
 			{
@@ -1249,6 +1253,9 @@ void idGameLocal::ClientRunFrame( idUserCmdMgr& cmdMgr, bool lastPredictFrame, g
 			RunAllUserCmdsForPlayer( cmdMgr, ent->entityNumber );
 		}
 	}
+	// jmarshall
+	RunSharedThink();
+	// jmarshall end
 
 	// service any pending events
 	idEvent::ServiceEvents();
@@ -1551,3 +1558,18 @@ void idEventQueue::Enqueue( entityNetEvent_t* event, outOfOrderBehaviour_t behav
 	}
 	end = event;
 }
+
+// jmarshall
+/*
+================
+idGameLocal::RunBotFrame
+================
+*/
+void idGameLocal::RunBotFrame( idUserCmdMgr& cmdMgr )
+{
+	for( int i = 0; i < registeredBots.Num(); i++ )
+	{
+		registeredBots[i]->BotInputFrame( cmdMgr );
+	}
+}
+// jmarshall end
