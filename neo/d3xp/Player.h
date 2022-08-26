@@ -991,7 +991,6 @@ public:
 	void					Event_SelectWeapon( const char* weaponName );
 	void					Event_GetWeaponEntity();
 	void					Event_OpenPDA();
-	void					Event_PDAAvailable();
 	void					Event_InPDA();
 	void					Event_ExitTeleporter();
 	void					Event_HideTip();

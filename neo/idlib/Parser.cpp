@@ -1763,12 +1763,13 @@ int idParser::EvaluateTokens( idToken* tokens, signed int* intvalue, double* flo
 			}
 			case TT_NUMBER:
 			{
-				if( lastwasvalue )
-				{
-					idParser::Error( "syntax error in #if/#elif" );
-					error = 1;
-					break;
-				}
+				// RB: FIXME this shit breaks typeinfogen
+				//if( lastwasvalue )
+				//{
+				//	idParser::Error( "syntax error in #if/#elif" );
+				//	error = 1;
+				//	break;
+				//}
 				//v = (value_t *) GetClearedMemory(sizeof(value_t));
 				AllocValue( v );
 				if( negativevalue )
