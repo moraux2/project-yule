@@ -1256,14 +1256,6 @@ void idWeapon::GetWeaponDef( const char* objectname, int ammoinclip )
 	{
 		gameLocal.Error( "Failed to get weapon class" );
 	}
-	if( currentWeaponObject != nullptr )
-	{
-		delete currentWeaponObject;
-		currentWeaponObject = nullptr;
-	}
-	currentWeaponObject = static_cast<iceWeaponObject*>( typeInfo->CreateInstance() );
-	currentWeaponObject->Init( this );
-	currentWeaponObject->CallSpawn();
 
 	spawnArgs = weaponDef->dict;
 
@@ -1281,16 +1273,23 @@ void idWeapon::GetWeaponDef( const char* objectname, int ammoinclip )
 	// call script object's constructor
 	//ConstructScriptObject();
 
+	if( currentWeaponObject != nullptr )
+	{
+		delete currentWeaponObject;
+		currentWeaponObject = nullptr;
+	}
+	currentWeaponObject = static_cast<iceWeaponObject*>( typeInfo->CreateInstance() );
+	currentWeaponObject->Init( this );
+	currentWeaponObject->CallSpawn();
+
 	// make sure we have the correct skin
 	UpdateSkin();
 
+	idEntity* ent = worldModel.GetEntity();
+	DetermineTimeGroup( weaponDef->dict.GetBool( "slowmo", "0" ) );
+	if( ent )
 	{
-		idEntity* ent = worldModel.GetEntity();
-		DetermineTimeGroup( weaponDef->dict.GetBool( "slowmo", "0" ) );
-		if( ent )
-		{
-			ent->DetermineTimeGroup( weaponDef->dict.GetBool( "slowmo", "0" ) );
-		}
+		ent->DetermineTimeGroup( weaponDef->dict.GetBool( "slowmo", "0" ) );
 	}
 
 	//Initialize the particles

@@ -35,14 +35,14 @@ CLASS_DECLARATION( iceWeaponObject, iceWeaponFlashlight )
 END_CLASS
 
 // blend times
-#define FLASHLIGHT_IDLE_TO_LOWER	4
-#define FLASHLIGHT_IDLE_TO_FIRE		2
-#define	FLASHLIGHT_IDLE_TO_RELOAD	4
-#define FLASHLIGHT_RAISE_TO_IDLE	4
-#define FLASHLIGHT_FIRE_TO_IDLE		4
-#define FLASHLIGHT_RELOAD_TO_IDLE	4
+static const int FLASHLIGHT_IDLE_TO_LOWER = 4;
+static const int FLASHLIGHT_IDLE_TO_FIRE = 2;
+static const int FLASHLIGHT_IDLE_TO_RELOAD = 4;
+static const int FLASHLIGHT_RAISE_TO_IDLE = 4;
+static const int FLASHLIGHT_FIRE_TO_IDLE = 4;
+static const int FLASHLIGHT_RELOAD_TO_IDLE = 4;
 
-#define	FLASHLIGHT_MIN_SKIN_INTENSITY	0.2
+static const float FLASHLIGHT_MIN_SKIN_INTENSITY = 0.2f;
 
 /*
 ================

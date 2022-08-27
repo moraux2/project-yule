@@ -243,6 +243,7 @@ extern idCVar	g_xp_bind_run_once;
 
 extern idCVar	aas_test;
 extern idCVar	aas_showAreas;
+extern idCVar	aas_showBotAreas;
 extern idCVar	aas_showPath;
 extern idCVar	aas_showFlyPath;
 extern idCVar	aas_showWallEdges;

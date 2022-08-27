@@ -3461,11 +3461,13 @@ void idGameLocal::RunDebugInfo()
 		return;
 	}
 // jmarshall
-	if( aas_showAreas.GetBool() )
+	if( aas_showBotAreas.GetBool() )
 	{
 		idAAS* aas = bot_aas;
-
-		aas->DrawAreas();
+		if( aas )
+		{
+			aas->DrawAreas();
+		}
 	}
 // jmarshall end
 
