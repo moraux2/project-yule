@@ -34,13 +34,12 @@ If you have questions concerning this license or the applicable additional terms
 CLASS_DECLARATION( iceWeaponObject, iceWeaponFist )
 END_CLASS
 
-#define RIFLE_NUMPROJECTILES	1
 
 // blend times
-#define FISTS_IDLE_TO_LOWER		4
-#define FISTS_IDLE_TO_PUNCH		0
-#define FISTS_RAISE_TO_IDLE		4
-#define FISTS_PUNCH_TO_IDLE		1
+static const int FISTS_IDLE_TO_LOWER = 4;
+static const int FISTS_IDLE_TO_PUNCH = 0;
+static const int FISTS_RAISE_TO_IDLE = 4;
+static const int FISTS_PUNCH_TO_IDLE = 1;
 
 
 /*

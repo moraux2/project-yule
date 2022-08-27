@@ -602,10 +602,10 @@ void idAASLocal::Test( const idVec3& origin )
 		ShowHideArea( origin, aas_showHideArea.GetInteger() );
 	}
 // jmarshall - expanded on this.
-	//if( aas_showAreas.GetBool() )
-	//{
-	//	ShowArea( origin );
-	//}
+	if( aas_showAreas.GetBool() )
+	{
+		ShowArea( origin );
+	}
 // jmarshall end
 	if( aas_showWallEdges.GetBool() )
 	{
