@@ -41,8 +41,6 @@ This is the main state for all enemies.
 */
 stateResult_t idAI::state_Combat( stateParms_t* parms )
 {
-	float attack_flags;
-
 	if( parms->stage == 1 || parms->stage == 2 )
 	{
 		bool result;
@@ -73,7 +71,7 @@ stateResult_t idAI::state_Combat( stateParms_t* parms )
 		return SRESULT_WAIT;
 	}
 
-	Event_FaceEnemy();
+	FaceEnemy();
 	if( AI_ENEMY_IN_FOV )
 	{
 		Event_LookAtEnemy( 1 );
@@ -89,7 +87,7 @@ stateResult_t idAI::state_Combat( stateParms_t* parms )
 		enemy_dead();
 	}
 
-	attack_flags = check_attacks();
+	int attack_flags = check_attacks();
 	if( attack_flags )
 	{
 		stateThread.Clear();
