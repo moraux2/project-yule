@@ -490,12 +490,11 @@ monster_demon_trite::state_LostCombat
 void monster_demon_trite::state_LostCombat() {
 	float attack_flags;
 	float endtime;
-// jmarshall - fix me
-	//if ( !explode ) {
-	//	monster_base_lost_combat();
-	//	return;
-	//}
-// jmarshall end
+
+	if ( !explode ) {
+		monster_base_lost_combat();
+		return;
+	}
 
 	moveToEnemy();
 	while( !AI_MOVE_DONE ) {

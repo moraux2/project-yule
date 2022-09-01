@@ -41,8 +41,6 @@ entityDef weapon_handgrenade {
 	"model_world" 				"worldmodel_handgrenade"
 	"joint_attach"				"NADE_ATTACHER"
 	"def_dropItem"				"moveable_item_grenades"
-	
-	"modelindex"				"MODELINDEX_GRENADELAUNCHER"
 
 	"inv_name"					"#str_07013"
 	"inv_weapon"				"weapon_handgrenade"
@@ -55,7 +53,7 @@ entityDef weapon_handgrenade {
 	"pdaIcon"					"guis/assets/hud/icons/grenade_new.tga"
 	"hudIcon"					"guis/assets/hud/icons/grenadew.tga"	
 
-	"weapon_class"				"iceWeaponHandgrenade"
+	"weapon_scriptobject"		"weapon_handgrenade"
 	"def_projectile"			"projectile_grenade"
 	"def_explode_inhand"		"env_grenade_explodeinhand"
 	"def_damage_inhand"			"damage_grenadeSplash_inhand"

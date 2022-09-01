@@ -61,8 +61,6 @@ entityDef weapon_pistol {
 	"model_world" 				"worldmodel_pistol"
 	"joint_attach"				"PISTOL_ATTACHER"
 	"def_dropItem"				"moveable_item_pistol"
-	
-	"modelindex"				"MODELINDEX_SHOTGUN"
 
 	"inv_name"					"#str_00100178"
 	"inv_weapon"				"weapon_pistol"
@@ -74,7 +72,7 @@ entityDef weapon_pistol {
 	"pdaIcon"					"guis/assets/hud/icons/pistol_new.tga"
 	"hudIcon"					"guis/assets/hud/icons/pistolw.tga"
 
-	"weapon_class"				"iceWeaponPistol"
+	"weapon_scriptobject"		"weapon_pistol"
 	"def_projectile"			"projectile_bullet_pistol"
 	"ammoType"					"ammo_bullets"
 	"ammoRequired"				"1"
@@ -162,8 +160,7 @@ model viewmodel_pistol {
 }
 
 entityDef	damage_bullet_pistol {
-	"minDamage"			"9"
-	"maxDamage"			"14"
+	"damage"			"14"
 	"kickDir"			"1 0 0"
 
 	"mtr_blob"			"genericDamage"

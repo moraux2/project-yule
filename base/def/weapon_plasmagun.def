@@ -51,8 +51,6 @@ entityDef weapon_plasmagun {
 	"model_world" 				"worldmodel_plasmagun"
 	"joint_attach"				"pgATTACHER"
 	"def_dropItem"				"moveable_item_plasmagun"
-	
-	"modelindex"				"MODELINDEX_PLASMAGUN"
 
 	"inv_name"					"#str_01456"
 	"inv_weapon"				"weapon_plasmagun"
@@ -68,7 +66,7 @@ entityDef weapon_plasmagun {
 	"gui"						"guis/weapons/plasmagun.gui"
 	"mtr_guiLightShader"		"lights/viewWeaponGuiLight"
 
-	"weapon_class"				"iceWeaponPlasmaGun"
+	"weapon_scriptobject"		"weapon_plasmagun"
 	"def_projectile"			"projectile_plasmablast"
 	"muzzle_launch"				"1"
 	"ammoType"					"ammo_cells"
@@ -164,8 +162,7 @@ model viewmodel_plasmagun {
 }
 
 entityDef	damage_plasmablast {
-	"minDamage"					"19"
-	"maxDamage"					"19"
+	"damage"					"16"
 	"smoke_wound_flesh"			"bloodwound.prt"
 	"gib"						"1"
 	

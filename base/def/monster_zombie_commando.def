@@ -171,8 +171,6 @@ entityDef monster_zombie_commando {
 	"gib"							"0"
 	//"offsetModel"					"-12 0 0"
 	
-	"spawnclass"					"iceMonsterZombieCommandoTentacle"
-	
 
 	"size"							"48 48 80"
 	"use_aas"						"aas48"
