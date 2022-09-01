@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(RBDoom3BFG)
+project(RBDOOM-3-BFG-IcedHellfireDev)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 if(CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 6)
 	# set MSVC startup project
-	set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT RBDoom3BFG)
+	set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DoomIcedHellfire)
 endif()
 	
 option(STANDALONE
@@ -1741,9 +1741,9 @@ if(MSVC)
 	
 	list(APPEND RBDOOM3_SOURCES ${WIN32_RESOURCES})
 	
-	add_executable(RBDoom3BFG WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
+	add_executable(DoomIcedHellfire WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 
-	add_dependencies(RBDoom3BFG idlib typeinfogen)
+	add_dependencies(DoomIcedHellfire idlib typeinfogen)
     
     if(USE_DX12)
 		add_dependencies(RBDoom3BFG nvrhi_d3d12)
@@ -1755,7 +1755,7 @@ if(MSVC)
 	
 	# call typeinfogen to generate neo/d3xp/gamesys/GameTypeInfo.h
 	add_custom_command(
-			TARGET RBDoom3BFG
+			TARGET DoomIcedHellfire
 			PRE_BUILD
 			DEPENDS typeinfogen
 			COMMAND typeinfogen
@@ -1763,7 +1763,7 @@ if(MSVC)
 			COMMENT "Generating neo/d3xp/gamesys/GameTypeInfo.h"
 			)
 	
-	target_link_libraries(RBDoom3BFG
+	target_link_libraries(DoomIcedHellfire
 		idlib
 		${DirectX_LIBRARIES}
 		dbghelp
@@ -1784,15 +1784,15 @@ if(MSVC)
 		
 	# set MSVC default debug directory on executable	
 	if(CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 8)
-		set_target_properties(RBDoom3BFG PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
+		set_target_properties(DoomIcedHellfire PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
 	endif()
 	
 	#CMAKE_BINARY_DIR
 	if(CMAKE_CL_64)
-		install(TARGETS RBDoom3BFG
+		install(TARGETS DoomIcedHellfire
 			RUNTIME DESTINATION .)
 	else()
-		install(TARGETS RBDoom3BFG
+		install(TARGETS DoomIcedHellfire
 			RUNTIME DESTINATION .)
 	endif()	
 
@@ -1951,14 +1951,14 @@ else()
 		add_dependencies(precomp_header_rbdoom3bfg idlib)
 	endif()
 
-	add_executable(RBDoom3BFG WIN32 ${RBDOOM3_SOURCES})
+	add_executable(DoomIcedHellfire WIN32 ${RBDOOM3_SOURCES})
 
 	if (USE_PRECOMPILED_HEADERS)
 		# make sure precompiled header is created before executable is compiled
-		add_dependencies(RBDoom3BFG precomp_header_rbdoom3bfg)
+		add_dependencies(DoomIcedHellfire precomp_header_rbdoom3bfg)
 		
 		# make sure precompiled header is deleted after executable is compiled
-		add_dependencies(rm_precomp_header RBDoom3BFG)
+		add_dependencies(rm_precomp_header DoomIcedHellfire)
 	endif()	
 
 	if(NOT WIN32)
@@ -1966,7 +1966,7 @@ else()
 			set(RT_LIBRARY rt)
 		endif()
 
-		target_link_libraries(RBDoom3BFG
+		target_link_libraries(DoomIcedHellfire
 			idlib
 			${Vulkan_LIBRARIES}
 			${OPENGL_LIBRARIES}
