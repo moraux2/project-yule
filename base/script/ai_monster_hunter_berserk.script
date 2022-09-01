@@ -1013,11 +1013,10 @@ boolean monster_hunter_berserk::combat_chase_berserk() {
 			do_attack( attack_flags );
 			return true;
 		}
-// jmarshall - fix me
-		//if ( check_blocked() ) {
-		//	return true;
-		//}
-// jmarshall end
+
+		if ( check_blocked() ) {
+			return true;
+		}
 		waitFrame();
 	}
 
