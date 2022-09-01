@@ -977,6 +977,66 @@ bool idAI::MoveOutOfRange( idEntity* ent, float range )
 
 /*
 =====================
+idAI::MoveToAttackPosition
+=====================
+*/
+/*
+bool idAI::MoveToAttackPosition( idEntity* ent, int attack_anim )
+{
+	int				areaNum;
+	aasObstacle_t	obstacle;
+	aasGoal_t		goal;
+	idBounds		bounds;
+	idVec3			pos;
+
+	if( !aas || !ent )
+	{
+		StopMove( MOVE_STATUS_DEST_UNREACHABLE );
+		AI_DEST_UNREACHABLE = true;
+		return false;
+	}
+
+	const idVec3& org = physicsObj.GetOrigin();
+	areaNum	= PointReachableAreaNum( org );
+
+	// consider the entity the monster is getting close to as an obstacle
+	obstacle.absBounds = ent->GetPhysics()->GetAbsBounds();
+
+	if( ent == enemy.GetEntity() )
+	{
+		pos = lastVisibleEnemyPos;
+	}
+	else
+	{
+		pos = ent->GetPhysics()->GetOrigin();
+	}
+
+	idAASFindAttackPosition findGoal( this, physicsObj.GetGravityAxis(), ent, pos, missileLaunchOffset[ attack_anim ] );
+	if( !aas->FindNearestGoal( goal, areaNum, org, pos, travelFlags, &obstacle, 1, findGoal ) )
+	{
+		StopMove( MOVE_STATUS_DEST_UNREACHABLE );
+		AI_DEST_UNREACHABLE = true;
+		return false;
+	}
+
+	move.moveDest		= goal.origin;
+	move.toAreaNum		= goal.areaNum;
+	move.goalEntity		= ent;
+	move.moveCommand	= MOVE_TO_ATTACK_POSITION;
+	move.moveStatus		= MOVE_STATUS_MOVING;
+	move.speed			= fly_speed;
+	move.startTime		= gameLocal.time;
+	move.anim			= attack_anim;
+	AI_MOVE_DONE		= false;
+	AI_DEST_UNREACHABLE = false;
+	AI_FORWARD			= true;
+
+	return true;
+}
+*/
+
+/*
+=====================
 idAI::MoveToPosition
 =====================
 */
@@ -1140,7 +1200,7 @@ bool idAI::WanderAround()
 	return true;
 }
 
-
+// jmarshall begin
 /*
 ================
 idAI::CanReachEntity
@@ -1239,7 +1299,7 @@ bool idAI::CanReachEnemy()
 		return true;
 	}
 }
-
+// jmarshall end
 
 /*
 =====================
@@ -1386,7 +1446,7 @@ bool idAI::NewWanderDir( const idVec3& dest )
 	}
 
 	// try other directions
-	if( ( gameLocal.random.RandomInt() & 1 ) || abs( deltay ) > abs( deltax ) )
+	if( ( gameLocal.random.RandomInt() & 1 ) || idMath::Fabs( deltay ) > idMath::Fabs( deltax ) )
 	{
 		tdir = d[1];
 		d[1] = d[2];
