@@ -221,7 +221,7 @@ EVENT( AI_MoveToCover,						idAI::Event_MoveToCover )
 EVENT( AI_MoveToEnemy,						idAI::Event_MoveToEnemy )
 EVENT( AI_MoveToEnemyHeight,				idAI::Event_MoveToEnemyHeight )
 EVENT( AI_MoveOutOfRange,					idAI::Event_MoveOutOfRange )
-//EVENT( AI_MoveToAttackPosition,				idAI::Event_MoveToAttackPosition ) // jmarshall
+EVENT( AI_MoveToAttackPosition,				idAI::Event_MoveToAttackPosition )
 EVENT( AI_Wander,							idAI::Event_Wander )
 EVENT( AI_MoveToEntity,						idAI::Event_MoveToEntity )
 EVENT( AI_MoveToPosition,					idAI::Event_MoveToPosition )
@@ -1259,7 +1259,6 @@ void idAI::Event_MoveOutOfRange( idEntity* entity, float range )
 idAI::Event_MoveToAttackPosition
 =====================
 */
-/*
 void idAI::Event_MoveToAttackPosition( idEntity* entity, const char* attack_anim )
 {
 	int anim;
@@ -1274,7 +1273,6 @@ void idAI::Event_MoveToAttackPosition( idEntity* entity, const char* attack_anim
 
 	MoveToAttackPosition( entity, anim );
 }
-*/
 
 /*
 =====================
