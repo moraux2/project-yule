@@ -34,10 +34,10 @@ If you have questions concerning this license or the applicable additional terms
 
 /*
 =====================
-idAI::State_TeleportTriggered
+idAI::state_TeleportTriggered
 =====================
 */
-stateResult_t idAI::State_TeleportTriggered( stateParms_t* parms )
+stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 {
 	int teleportType = 0;
 
@@ -120,7 +120,7 @@ stateResult_t idAI::State_TeleportTriggered( stateParms_t* parms )
 				Event_SetNeverDormant( GetFloatKey( "neverdormant" ) );
 				Event_LocateEnemy();
 				Event_SetMoveType( parms->param1 );
-				stateThread.SetState( "State_WakeUp" );
+				stateThread.SetState( "state_WakeUp" );
 			}
 			return SRESULT_DONE;
 	}
@@ -130,10 +130,10 @@ stateResult_t idAI::State_TeleportTriggered( stateParms_t* parms )
 
 /*
 =====================
-idAI::State_TriggerAnim
+idAI::state_TriggerAnim
 =====================
 */
-stateResult_t idAI::State_TriggerAnim( stateParms_t* parms )
+stateResult_t idAI::state_TriggerAnim( stateParms_t* parms )
 {
 	idStr triggerAnim;
 
@@ -188,7 +188,7 @@ stateResult_t idAI::State_TriggerAnim( stateParms_t* parms )
 			{
 				Event_SetNeverDormant( GetFloatKey( "neverdormant" ) );
 				Event_LocateEnemy();
-				stateThread.SetState( "State_WakeUp" );
+				stateThread.SetState( "state_WakeUp" );
 			}
 			return SRESULT_DONE;
 	}
@@ -198,10 +198,10 @@ stateResult_t idAI::State_TriggerAnim( stateParms_t* parms )
 
 /*
 =====================
-idAI::State_TriggerHidden
+idAI::state_TriggerHidden
 =====================
 */
-stateResult_t idAI::State_TriggerHidden( stateParms_t* parms )
+stateResult_t idAI::state_TriggerHidden( stateParms_t* parms )
 {
 	enum rvmStateType_t
 	{
@@ -237,7 +237,7 @@ stateResult_t idAI::State_TriggerHidden( stateParms_t* parms )
 			if( CanBecomeSolid() )
 			{
 				Show();
-				stateThread.SetState( "State_WakeUp" );
+				stateThread.SetState( "state_WakeUp" );
 			}
 			return SRESULT_DONE;
 	}
@@ -247,10 +247,10 @@ stateResult_t idAI::State_TriggerHidden( stateParms_t* parms )
 
 /*
 =====================
-idAI::State_WakeUp
+idAI::state_WakeUp
 =====================
 */
-stateResult_t idAI::State_WakeUp( stateParms_t* parms )
+stateResult_t idAI::state_WakeUp( stateParms_t* parms )
 {
 	float	waittime;
 	idEntity* path;
