@@ -41,13 +41,13 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 {
 	int teleportType = 0;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_TRIGGER_TELEPORT_INIT = 0,
-		STATE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION,
-		STATE_TRIGGER_TELEPORT_SPAWN_VFX,
-		STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION,
-		STATE_TRIGGER_TELEPORT_START_ACTIVE,
+		STAGE_TRIGGER_TELEPORT_INIT = 0,
+		STAGE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION,
+		STAGE_TRIGGER_TELEPORT_SPAWN_VFX,
+		STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION,
+		STAGE_TRIGGER_TELEPORT_START_ACTIVE,
 	};
 
 	//
@@ -55,18 +55,18 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 	//
 	switch( parms->stage )
 	{
-		case STATE_TRIGGER_TELEPORT_INIT:
+		case STAGE_TRIGGER_TELEPORT_INIT:
 			Hide();
-			parms->stage = STATE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION;
+			parms->stage = STAGE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION;
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION:
+		case STAGE_TRIGGER_TELEPORT_WAIT_FOR_ACTIVATION:
 			if( AI_ACTIVATED )
 			{
-				parms->stage = STATE_TRIGGER_TELEPORT_SPAWN_VFX;
+				parms->stage = STAGE_TRIGGER_TELEPORT_SPAWN_VFX;
 			}
 			return SRESULT_WAIT;
-		case STATE_TRIGGER_TELEPORT_SPAWN_VFX:
+		case STAGE_TRIGGER_TELEPORT_SPAWN_VFX:
 			if( CanBecomeSolid() )
 			{
 				Event_BecomeSolid();
@@ -84,37 +84,37 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 				{
 					Event_StartFx( "fx_teleport1" );
 					parms->Wait( 1.6 );
-					parms->stage = STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
+					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 				else if( teleportType == 2 )
 				{
 					Event_StartFx( "fx_teleport2" );
 					parms->Wait( 2.6 );
-					parms->stage = STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
+					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 				else if( teleportType == 3 )
 				{
 					Event_StartFx( "fx_teleport3" );
 					parms->Wait( 3.6 );
-					parms->stage = STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
+					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 				else
 				{
 					Event_StartFx( "fx_teleport" );
 					parms->Wait( 0.6 );
-					parms->stage = STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
+					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 			}
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_TELEPORT_CUSTOM_ANIMATION:
+		case STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION:
 			Show();
 			PlayCustomAnim( "teleport", 0, 4 );
 			SetWaitState( "customAnim" );
-			parms->stage = STATE_TRIGGER_TELEPORT_START_ACTIVE;
+			parms->stage = STAGE_TRIGGER_TELEPORT_START_ACTIVE;
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_TELEPORT_START_ACTIVE:
+		case STAGE_TRIGGER_TELEPORT_START_ACTIVE:
 			if( waitState == "" )
 			{
 				Event_SetNeverDormant( GetFloatKey( "neverdormant" ) );
@@ -137,12 +137,12 @@ stateResult_t idAI::state_TriggerAnim( stateParms_t* parms )
 {
 	idStr triggerAnim;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_TRIGGER_ANIM_INIT = 0,
-		STATE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION,
-		STATE_TRIGGER_ANIM_SHOW,
-		STATE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE,
+		STAGE_TRIGGER_ANIM_INIT = 0,
+		STAGE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION,
+		STAGE_TRIGGER_ANIM_SHOW,
+		STAGE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE,
 	};
 
 	//
@@ -150,24 +150,24 @@ stateResult_t idAI::state_TriggerAnim( stateParms_t* parms )
 	//
 	switch( parms->stage )
 	{
-		case STATE_TRIGGER_ANIM_INIT:
+		case STAGE_TRIGGER_ANIM_INIT:
 			//
 			// hide until triggered and then play a special animation
 			//
 			triggerAnim = GetKey( "trigger_anim" );
 			Event_CheckAnim( ANIMCHANNEL_TORSO, triggerAnim );
 			Hide();
-			parms->stage = STATE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION;
+			parms->stage = STAGE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION;
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION:
+		case STAGE_TRIGGER_ANIM_WAIT_FOR_ACTIVATION:
 			if( AI_ACTIVATED )
 			{
-				parms->stage = STATE_TRIGGER_ANIM_SHOW;
+				parms->stage = STAGE_TRIGGER_ANIM_SHOW;
 			}
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_ANIM_SHOW:
+		case STAGE_TRIGGER_ANIM_SHOW:
 			if( CanBecomeSolid() )
 			{
 				triggerAnim = GetKey( "trigger_anim" );
@@ -178,12 +178,12 @@ stateResult_t idAI::state_TriggerAnim( stateParms_t* parms )
 				Show();
 				trigger_wakeup_targets();
 				PlayCustomAnim( triggerAnim, 0, 4 );
-				parms->stage = STATE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE;
+				parms->stage = STAGE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE;
 				SetWaitState( "customAnim" );
 			}
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE:
+		case STAGE_TRIGGER_WAIT_FOR_ANIMATION_COMPLETE:
 			if( waitState == "" )
 			{
 				Event_SetNeverDormant( GetFloatKey( "neverdormant" ) );
@@ -203,11 +203,11 @@ idAI::state_TriggerHidden
 */
 stateResult_t idAI::state_TriggerHidden( stateParms_t* parms )
 {
-	enum rvmStateType_t
+	enum
 	{
-		STATE_TRIGGER_HIDE_INIT = 0,
-		STATE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION,
-		STATE_TRIGGER_HIDE_SHOW,
+		STAGE_TRIGGER_HIDE_INIT = 0,
+		STAGE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION,
+		STAGE_TRIGGER_HIDE_SHOW,
 	};
 
 
@@ -216,12 +216,12 @@ stateResult_t idAI::state_TriggerHidden( stateParms_t* parms )
 	//
 	switch( parms->stage )
 	{
-		case STATE_TRIGGER_HIDE_INIT:
+		case STAGE_TRIGGER_HIDE_INIT:
 			Hide();
-			parms->stage = STATE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION;
+			parms->stage = STAGE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION;
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION:
+		case STAGE_TRIGGER_HIDE_WAIT_FOR_ACTIVATION:
 			if( AI_ACTIVATED )
 			{
 				if( ( GetIntKey( "hide" ) == 1 ) || ambush )
@@ -229,11 +229,11 @@ stateResult_t idAI::state_TriggerHidden( stateParms_t* parms )
 					AI_ACTIVATED = false;
 					Event_ClearEnemy();
 				}
-				parms->stage = STATE_TRIGGER_HIDE_SHOW;
+				parms->stage = STAGE_TRIGGER_HIDE_SHOW;
 			}
 			return SRESULT_WAIT;
 
-		case STATE_TRIGGER_HIDE_SHOW:
+		case STAGE_TRIGGER_HIDE_SHOW:
 			if( CanBecomeSolid() )
 			{
 				Show();
@@ -256,10 +256,10 @@ stateResult_t idAI::state_WakeUp( stateParms_t* parms )
 	idEntity* path;
 	idEntity* enemy;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_TRIGGER_NORMAL_FLOW_INIT = 0,
-		STATE_TRIGGER_NORMAL_FLOW_FINISH
+		STAGE_TRIGGER_NORMAL_FLOW_INIT = 0,
+		STAGE_TRIGGER_NORMAL_FLOW_FINISH
 	};
 
 	AI_RUN = false;
@@ -267,9 +267,9 @@ stateResult_t idAI::state_WakeUp( stateParms_t* parms )
 
 	bool start_active = true;
 
-	if( parms->stage == STATE_TRIGGER_NORMAL_FLOW_INIT )
+	if( parms->stage == STAGE_TRIGGER_NORMAL_FLOW_INIT )
 	{
-		parms->stage = STATE_TRIGGER_NORMAL_FLOW_FINISH;
+		parms->stage = STAGE_TRIGGER_NORMAL_FLOW_FINISH;
 		waittime = GetFloatKey( "wait" );
 		if( waittime > 0 )
 		{
@@ -413,14 +413,14 @@ stateResult_t idAI::wake_on_trigger( stateParms_t* parms )
 	idStr	animname;
 	idEntity* path;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_INIT = 0,
-		STATE_WAIT_FOR_ACTIVATION,
-		STATE_FINISH
+		STAGE_INIT = 0,
+		STAGE_WAIT_FOR_ACTIVATION,
+		STAGE_FINISH
 	};
 
-	if( parms->stage == STATE_INIT )
+	if( parms->stage == STAGE_INIT )
 	{
 		if( !GetIntKey( "attack_path" ) )
 		{
@@ -439,14 +439,14 @@ stateResult_t idAI::wake_on_trigger( stateParms_t* parms )
 			animname = GetKey( "anim" );
 			PlayCustomCycle( animname, 4 );
 
-			parms->stage = STATE_WAIT_FOR_ACTIVATION;
+			parms->stage = STAGE_WAIT_FOR_ACTIVATION;
 		}
 
 		return SRESULT_WAIT;
 	}
 
 
-	if( parms->stage == STATE_WAIT_FOR_ACTIVATION )
+	if( parms->stage == STAGE_WAIT_FOR_ACTIVATION )
 	{
 		if( !( AI_ACTIVATED || AI_PAIN ) )
 		{
@@ -457,7 +457,7 @@ stateResult_t idAI::wake_on_trigger( stateParms_t* parms )
 
 		Event_AnimState( ANIMCHANNEL_TORSO, "Torso_Idle", 4 );
 
-		parms->stage = STATE_FINISH;
+		parms->stage = STAGE_FINISH;
 
 		return SRESULT_WAIT;
 	}
@@ -502,16 +502,16 @@ stateResult_t idAI::walk_on_trigger( stateParms_t* parms )
 {
 	idEntity* path;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_INIT = 0,
-		STATE_WAIT_FOR_ACTIVATION,
-		STATE_AFTER_ACTIVATION,
-		STATE_CHECK_ENEMY,
-		STATE_WAKEUP
+		STAGE_INIT = 0,
+		STAGE_WAIT_FOR_ACTIVATION,
+		STAGE_AFTER_ACTIVATION,
+		STAGE_CHECK_ENEMY,
+		STAGE_WAKEUP
 	};
 
-	if( parms->stage == STATE_INIT )
+	if( parms->stage == STAGE_INIT )
 	{
 		idStr animname;
 
@@ -521,11 +521,11 @@ stateResult_t idAI::walk_on_trigger( stateParms_t* parms )
 		animname = GetKey( "anim" );
 		PlayCustomCycle( animname, 4 );
 
-		parms->stage = STATE_WAIT_FOR_ACTIVATION;
+		parms->stage = STAGE_WAIT_FOR_ACTIVATION;
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_WAIT_FOR_ACTIVATION )
+	if( parms->stage == STAGE_WAIT_FOR_ACTIVATION )
 	{
 		if( AI_ACTIVATED || AI_PAIN )
 		{
@@ -535,13 +535,13 @@ stateResult_t idAI::walk_on_trigger( stateParms_t* parms )
 				AI_ACTIVATED = false;
 			}
 
-			parms->stage = STATE_AFTER_ACTIVATION;
+			parms->stage = STAGE_AFTER_ACTIVATION;
 		}
 
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_AFTER_ACTIVATION )
+	if( parms->stage == STAGE_AFTER_ACTIVATION )
 	{
 		Event_AnimState( ANIMCHANNEL_TORSO, "Torso_Idle", 4 );
 		Event_AllowMovement( true );
@@ -560,17 +560,17 @@ stateResult_t idAI::walk_on_trigger( stateParms_t* parms )
 			// sit in our idle anim till we're activated
 			Event_AllowMovement( false );
 			PlayCustomCycle( animname, 4 );
-			parms->stage = STATE_CHECK_ENEMY;
+			parms->stage = STAGE_CHECK_ENEMY;
 		}
 		else
 		{
-			parms->stage = STATE_WAKEUP;
+			parms->stage = STAGE_WAKEUP;
 		}
 
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_CHECK_ENEMY )
+	if( parms->stage == STAGE_CHECK_ENEMY )
 	{
 		if( !AI_PAIN && !AI_ACTIVATED )
 		{
@@ -580,12 +580,12 @@ stateResult_t idAI::walk_on_trigger( stateParms_t* parms )
 		{
 			Event_AllowMovement( true );
 			Event_AnimState( ANIMCHANNEL_TORSO, "Torso_Idle", 4 );
-			parms->stage = STATE_WAKEUP;
+			parms->stage = STAGE_WAKEUP;
 		}
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_WAKEUP )
+	if( parms->stage == STAGE_WAKEUP )
 	{
 		trigger_wakeup_targets();
 		sight_enemy();
@@ -727,16 +727,16 @@ stateResult_t idAI::wake_on_attackcone( stateParms_t* parms )
 	idEntity* path;
 	idEntity* enemy;
 
-	enum rvmStateType_t
+	enum
 	{
-		STATE_INIT = 0,
-		STATE_FIND_ENEMY_COMBAT_NODES,
-		STATE_CHECK_ENEMY,
-		STATE_WAIT_ENEMY,
-		STATE_WAKEUP
+		STAGE_INIT = 0,
+		STAGE_FIND_ENEMY_COMBAT_NODES,
+		STAGE_CHECK_ENEMY,
+		STAGE_WAIT_ENEMY,
+		STAGE_WAKEUP
 	};
 
-	if( parms->stage == STATE_INIT )
+	if( parms->stage == STAGE_INIT )
 	{
 		if( !GetIntKey( "attack_path" ) )
 		{
@@ -745,17 +745,17 @@ stateResult_t idAI::wake_on_attackcone( stateParms_t* parms )
 			{
 				idle_followPathEntities( path );
 				AI_RUN = path->GetIntKey( "run" );
-				parms->stage = STATE_FIND_ENEMY_COMBAT_NODES;
+				parms->stage = STAGE_FIND_ENEMY_COMBAT_NODES;
 			}
 		}
 		else
 		{
-			parms->stage = STATE_CHECK_ENEMY;
+			parms->stage = STAGE_CHECK_ENEMY;
 		}
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_FIND_ENEMY_COMBAT_NODES )
+	if( parms->stage == STAGE_FIND_ENEMY_COMBAT_NODES )
 	{
 		if( !AI_MOVE_DONE && !AI_ACTIVATED && !AI_PAIN )
 		{
@@ -763,17 +763,17 @@ stateResult_t idAI::wake_on_attackcone( stateParms_t* parms )
 			if( enemy )
 			{
 				Event_SetEnemy( enemy );
-				parms->stage = STATE_CHECK_ENEMY;
+				parms->stage = STAGE_CHECK_ENEMY;
 			}
 		}
 		else
 		{
-			parms->stage = STATE_CHECK_ENEMY;
+			parms->stage = STAGE_CHECK_ENEMY;
 		}
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_CHECK_ENEMY )
+	if( parms->stage == STAGE_CHECK_ENEMY )
 	{
 		if( !GetEnemy() && !AI_ACTIVATED && !AI_PAIN )
 		{
@@ -783,16 +783,16 @@ stateResult_t idAI::wake_on_attackcone( stateParms_t* parms )
 			animname = GetKey( "anim" );
 			PlayCustomCycle( animname, 4 );
 
-			parms->stage = STATE_WAIT_ENEMY;
+			parms->stage = STAGE_WAIT_ENEMY;
 		}
 		else
 		{
-			parms->stage = STATE_WAKEUP;
+			parms->stage = STAGE_WAKEUP;
 		}
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_WAIT_ENEMY )
+	if( parms->stage == STAGE_WAIT_ENEMY )
 	{
 		if( !AI_ACTIVATED && !AI_PAIN )
 		{
@@ -800,20 +800,20 @@ stateResult_t idAI::wake_on_attackcone( stateParms_t* parms )
 			if( enemy )
 			{
 				Event_SetEnemy( enemy );
-				parms->stage = STATE_WAKEUP;
+				parms->stage = STAGE_WAKEUP;
 				Event_AllowMovement( true );
 				Event_AnimState( ANIMCHANNEL_TORSO, "Torso_Idle", 4 );
-				parms->stage = STATE_WAKEUP;
+				parms->stage = STAGE_WAKEUP;
 			}
 		}
 		else
 		{
-			parms->stage = STATE_WAKEUP;
+			parms->stage = STAGE_WAKEUP;
 		}
 		return SRESULT_WAIT;
 	}
 
-	if( parms->stage == STATE_WAKEUP )
+	if( parms->stage == STAGE_WAKEUP )
 	{
 		trigger_wakeup_targets();
 
