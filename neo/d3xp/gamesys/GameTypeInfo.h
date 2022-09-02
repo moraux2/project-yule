@@ -7,7 +7,7 @@
 
 	This file has been generated with the Type Info Generator v1.1 (c) 2004 id Software
 
-	957 constants
+	958 constants
 	92 enums
 	474 classes/structs/unions
 	3 templates
@@ -587,12 +587,13 @@ static constantInfo_t constantInfo[] = {
 	{ "int", "MOVE_TO_ENEMYHEIGHT", "4" },
 	{ "int", "MOVE_TO_ENTITY", "5" },
 	{ "int", "MOVE_OUT_OF_RANGE", "6" },
-	{ "int", "MOVE_TO_COVER", "7" },
-	{ "int", "MOVE_TO_POSITION", "8" },
-	{ "int", "MOVE_TO_POSITION_DIRECT", "9" },
-	{ "int", "MOVE_SLIDE_TO_POSITION", "10" },
-	{ "int", "MOVE_WANDER", "11" },
-	{ "int", "NUM_MOVE_COMMANDS", "12" },
+	{ "int", "MOVE_TO_ATTACK_POSITION", "7" },
+	{ "int", "MOVE_TO_COVER", "8" },
+	{ "int", "MOVE_TO_POSITION", "9" },
+	{ "int", "MOVE_TO_POSITION_DIRECT", "10" },
+	{ "int", "MOVE_SLIDE_TO_POSITION", "11" },
+	{ "int", "MOVE_WANDER", "12" },
+	{ "int", "NUM_MOVE_COMMANDS", "13" },
 	{ "int", "TALK_NEVER", "0" },
 	{ "int", "TALK_DEAD", "1" },
 	{ "int", "TALK_OK", "2" },
@@ -1697,12 +1698,13 @@ static enumValueInfo_t moveCommand_t_typeInfo[] = {
 	{ "MOVE_TO_ENEMYHEIGHT", 4 },
 	{ "MOVE_TO_ENTITY", 5 },
 	{ "MOVE_OUT_OF_RANGE", 6 },
-	{ "MOVE_TO_COVER", 7 },
-	{ "MOVE_TO_POSITION", 8 },
-	{ "MOVE_TO_POSITION_DIRECT", 9 },
-	{ "MOVE_SLIDE_TO_POSITION", 10 },
-	{ "MOVE_WANDER", 11 },
-	{ "NUM_MOVE_COMMANDS", 12 },
+	{ "MOVE_TO_ATTACK_POSITION", 7 },
+	{ "MOVE_TO_COVER", 8 },
+	{ "MOVE_TO_POSITION", 9 },
+	{ "MOVE_TO_POSITION_DIRECT", 10 },
+	{ "MOVE_SLIDE_TO_POSITION", 11 },
+	{ "MOVE_WANDER", 12 },
+	{ "NUM_MOVE_COMMANDS", 13 },
 	{ NULL, 0 }
 };
 

@@ -109,7 +109,7 @@ typedef enum
 	MOVE_TO_ENEMYHEIGHT,
 	MOVE_TO_ENTITY,
 	MOVE_OUT_OF_RANGE,
-	//MOVE_TO_ATTACK_POSITION, // jmarshall
+	MOVE_TO_ATTACK_POSITION, // RB: only used by the sentry AI
 	MOVE_TO_COVER,
 	MOVE_TO_POSITION,
 	MOVE_TO_POSITION_DIRECT,
@@ -594,7 +594,7 @@ protected:
 	bool					DirectMoveToPosition( const idVec3& pos );
 	bool					MoveToEnemyHeight();
 	bool					MoveOutOfRange( idEntity* entity, float range );
-	// bool					MoveToAttackPosition( idEntity* ent, int attack_anim ); // jmarshall
+	bool					MoveToAttackPosition( idEntity* ent, int attack_anim );
 	bool					MoveToEnemy();
 	bool					MoveToEntity( idEntity* ent );
 	bool					MoveToPosition( const idVec3& pos );
@@ -761,7 +761,7 @@ protected:
 	void					Event_MoveToEnemy();
 	void					Event_MoveToEnemyHeight();
 	void					Event_MoveOutOfRange( idEntity* entity, float range );
-//	void					Event_MoveToAttackPosition( idEntity* entity, const char* attack_anim ); // jmarshall
+	void					Event_MoveToAttackPosition( idEntity* entity, const char* attack_anim );
 	void					Event_MoveToEntity( idEntity* ent );
 	void					Event_MoveToPosition( const idVec3& pos );
 	void					Event_SlideTo( const idVec3& pos, float time );

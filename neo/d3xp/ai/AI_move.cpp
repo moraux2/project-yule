@@ -33,6 +33,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../Game_local.h"
 #include "AASCallback_FindAreaOutOfRange.h"
 #include "AASCallback_FindCoverArea.h"
+#include "AASCallback_FindAttackPosition.h"
 
 
 static const char* moveCommandString[NUM_MOVE_COMMANDS] =
@@ -44,6 +45,7 @@ static const char* moveCommandString[NUM_MOVE_COMMANDS] =
 	"MOVE_TO_ENEMYHEIGHT",
 	"MOVE_TO_ENTITY",
 	"MOVE_OUT_OF_RANGE",
+	"MOVE_TO_ATTACK_POSITION",
 	"MOVE_TO_COVER",
 	"MOVE_TO_POSITION",
 	"MOVE_TO_POSITION_DIRECT",
@@ -218,6 +220,10 @@ void idAI::Event_RestoreMove()
 
 		case MOVE_OUT_OF_RANGE:
 			MoveOutOfRange( savedMove.goalEntity.GetEntity(), savedMove.range );
+			break;
+
+		case MOVE_TO_ATTACK_POSITION:
+			MoveToAttackPosition( savedMove.goalEntity.GetEntity(), savedMove.anim );
 			break;
 
 		case MOVE_TO_COVER:
@@ -980,7 +986,6 @@ bool idAI::MoveOutOfRange( idEntity* ent, float range )
 idAI::MoveToAttackPosition
 =====================
 */
-/*
 bool idAI::MoveToAttackPosition( idEntity* ent, int attack_anim )
 {
 	int				areaNum;
@@ -1011,7 +1016,7 @@ bool idAI::MoveToAttackPosition( idEntity* ent, int attack_anim )
 		pos = ent->GetPhysics()->GetOrigin();
 	}
 
-	idAASFindAttackPosition findGoal( this, physicsObj.GetGravityAxis(), ent, pos, missileLaunchOffset[ attack_anim ] );
+	idAASCallback_FindAttackPosition findGoal( this, physicsObj.GetGravityAxis(), ent, pos, missileLaunchOffset[ attack_anim ] );
 	if( !aas->FindNearestGoal( goal, areaNum, org, pos, travelFlags, &obstacle, 1, findGoal ) )
 	{
 		StopMove( MOVE_STATUS_DEST_UNREACHABLE );
@@ -1033,7 +1038,6 @@ bool idAI::MoveToAttackPosition( idEntity* ent, int attack_anim )
 
 	return true;
 }
-*/
 
 /*
 =====================
