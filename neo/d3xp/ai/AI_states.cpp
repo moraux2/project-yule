@@ -66,6 +66,7 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 				parms->stage = STAGE_TRIGGER_TELEPORT_SPAWN_VFX;
 			}
 			return SRESULT_WAIT;
+
 		case STAGE_TRIGGER_TELEPORT_SPAWN_VFX:
 			if( CanBecomeSolid() )
 			{
@@ -121,8 +122,9 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 				Event_LocateEnemy();
 				Event_SetMoveType( parms->param1 );
 				stateThread.SetState( "state_WakeUp" );
+				return SRESULT_DONE;
 			}
-			return SRESULT_DONE;
+			return SRESULT_WAIT;
 	}
 
 	return SRESULT_ERROR;
@@ -189,8 +191,9 @@ stateResult_t idAI::state_TriggerAnim( stateParms_t* parms )
 				Event_SetNeverDormant( GetFloatKey( "neverdormant" ) );
 				Event_LocateEnemy();
 				stateThread.SetState( "state_WakeUp" );
+				return SRESULT_DONE;
 			}
-			return SRESULT_DONE;
+			return SRESULT_WAIT;
 	}
 
 	return SRESULT_ERROR;
