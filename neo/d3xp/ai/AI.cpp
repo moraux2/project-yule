@@ -1090,19 +1090,19 @@ void idAI::Spawn()
 
 		if( triggerAnim != "" )
 		{
-			stateThread.SetState( "State_TriggerAnim" );
+			stateThread.SetState( "state_TriggerAnim" );
 		}
 		else if( teleportType > 0 )
 		{
-			stateThread.SetState( "State_TeleportTriggered" );
+			stateThread.SetState( "state_TeleportTriggered" );
 		}
 		else if( GetIntKey( "hide" ) )
 		{
-			stateThread.SetState( "State_TriggerHidden" );
+			stateThread.SetState( "state_TriggerHidden" );
 		}
 		else
 		{
-			stateThread.SetState( "State_WakeUp" );
+			stateThread.SetState( "state_WakeUp" );
 		}
 	}
 // jmarshall end

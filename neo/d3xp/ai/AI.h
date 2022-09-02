@@ -680,15 +680,15 @@ protected:
 
 	// AI States
 	stateResult_t			state_Spawner( stateParms_t* parms );
-	stateResult_t			State_WakeUp( stateParms_t* parms );
+	stateResult_t			state_WakeUp( stateParms_t* parms );
 	stateResult_t			wake_on_attackcone( stateParms_t* parms );
 	stateResult_t			walk_on_trigger( stateParms_t* parms );
 	stateResult_t			wake_on_trigger( stateParms_t* parms );
 	stateResult_t			wake_on_enemy( stateParms_t* parms );
 	stateResult_t			wait_for_enemy( stateParms_t* parms );
-	stateResult_t			State_TriggerAnim( stateParms_t* parms );
-	stateResult_t			State_TeleportTriggered( stateParms_t* parms );
-	stateResult_t			State_TriggerHidden( stateParms_t* parms );
+	stateResult_t			state_TriggerAnim( stateParms_t* parms );
+	stateResult_t			state_TeleportTriggered( stateParms_t* parms );
+	stateResult_t			state_TriggerHidden( stateParms_t* parms );
 	stateResult_t			wake_call_constructor( stateParms_t* parms );
 	stateResult_t			state_Killed( stateParms_t* parms );
 	stateResult_t			state_Dead( stateParms_t* parms );

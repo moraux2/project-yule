@@ -107,6 +107,7 @@ stateResult_t idAI::combat_chase( stateParms_t* parms, bool& result )
 			return SRESULT_DONE;
 		}
 // crap...
+		// AI FIXME
 		//if (check_blocked()) {
 		//	result = true;
 		//	return SRESULT_DONE;
