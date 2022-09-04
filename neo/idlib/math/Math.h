@@ -1645,20 +1645,6 @@ ID_INLINE float idMath::AngleMod( float a )
 	return a;
 }
 
-ID_INLINE float idMath::RSqrt( float x )
-{
-
-	long i;
-	float y, r;
-
-	y = x * 0.5f;
-	i = *reinterpret_cast<long*>( &x );
-	i = 0x5f3759df - ( i >> 1 );
-	r = *reinterpret_cast<float*>( &i );
-	r = r * ( 1.5f - r * r * y );
-	return r;
-}
-
 
 // RAVEN BEGIN
 // jscott: fast and reliable random routines

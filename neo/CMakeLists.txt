@@ -1746,11 +1746,11 @@ if(MSVC)
 	add_dependencies(DoomIcedHellfire idlib typeinfogen)
     
     if(USE_DX12)
-		add_dependencies(RBDoom3BFG nvrhi_d3d12)
+		add_dependencies(DoomIcedHellfire nvrhi_d3d12)
 	endif()
 	
 	if(USE_NVRHI_VULKAN)
-		add_dependencies(RBDoom3BFG nvrhi_vk)
+		add_dependencies(DoomIcedHellfire nvrhi_vk)
 	endif()
 	
 	# call typeinfogen to generate neo/d3xp/gamesys/GameTypeInfo.h
@@ -1985,26 +1985,25 @@ else()
 endif()
 
 if(USE_DX11)
-	#target_sources(RBDoom3BFG PRIVATE src/app/dx11/DeviceManager_DX11.cpp)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_DX11=1)
-	target_link_libraries(RBDoom3BFG nvrhi_d3d11)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_DX11=1)
+	target_link_libraries(DoomIcedHellfire nvrhi_d3d11)
 endif()
 
 if(USE_DX12)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_DX12=1)
-	target_link_libraries(RBDoom3BFG nvrhi_d3d12)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_DX12=1)
+	target_link_libraries(DoomIcedHellfire nvrhi_d3d12)
 endif()
 
 if(USE_DXIL_ON_DX12)
-	target_compile_definitions(RBDoom3BFG PRIVATE USE_DXIL_ON_DX12=1)
+	target_compile_definitions(DoomIcedHellfire PRIVATE USE_DXIL_ON_DX12=1)
 endif()
 
 if(USE_NVRHI_VULKAN)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_VK=1)
-	target_link_libraries(RBDoom3BFG nvrhi_vk)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_VK=1)
+	target_link_libraries(DoomIcedHellfire nvrhi_vk)
 endif()
 
-target_link_libraries(RBDoom3BFG nvrhi)
+target_link_libraries(DoomIcedHellfire nvrhi)
 
 add_subdirectory(shaders)
-add_dependencies(RBDoom3BFG Shaders)
+add_dependencies(DoomIcedHellfire Shaders)
