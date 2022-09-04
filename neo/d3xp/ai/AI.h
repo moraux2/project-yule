@@ -251,52 +251,6 @@ public:
 	int						anim;
 };
 
-/*
-class idAASFindCover : public idAASCallback
-{
-public:
-	idAASFindCover( const idVec3& hideFromPos );
-	~idAASFindCover();
-
-	virtual bool		TestArea( const idAAS* aas, int areaNum );
-
-private:
-	pvsHandle_t			hidePVS;
-	int					PVSAreas[ idEntity::MAX_PVS_AREAS ];
-};
-
-class idAASFindAreaOutOfRange : public idAASCallback
-{
-public:
-	idAASFindAreaOutOfRange( const idVec3& targetPos, float maxDist );
-
-	virtual bool		TestArea( const idAAS* aas, int areaNum );
-
-private:
-	idVec3				targetPos;
-	float				maxDistSqr;
-};
-
-class idAASFindAttackPosition : public idAASCallback
-{
-public:
-	idAASFindAttackPosition( const idAI* self, const idMat3& gravityAxis, idEntity* target, const idVec3& targetPos, const idVec3& fireOffset );
-	~idAASFindAttackPosition();
-
-	virtual bool		TestArea( const idAAS* aas, int areaNum );
-
-private:
-	const idAI*			self;
-	idEntity*			target;
-	idBounds			excludeBounds;
-	idVec3				targetPos;
-	idVec3				fireOffset;
-	idMat3				gravityAxis;
-	pvsHandle_t			targetPVS;
-	int					PVSAreas[ idEntity::MAX_PVS_AREAS ];
-};
-*/
-
 class idAI : public idActor
 {
 public:
