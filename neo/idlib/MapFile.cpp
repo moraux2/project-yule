@@ -5,6 +5,7 @@ Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2015-2022 Robert Beckebans
 Copyright (C) 2020 Admer (id Tech Fox)
+Copyright (C) 2022 Harrie van Ginneken
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -32,6 +33,9 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 
 #include "../renderer/Image.h"
+
+
+idCVar gltf_MapSceneName( "gltf_MapSceneName", "Scene", CVAR_SYSTEM , "Scene to use when d-mapping a gltf/glb" );
 
 /*
 ===============
@@ -1448,12 +1452,11 @@ idMapEntity::GetGeometryCRC
 */
 unsigned int idMapEntity::GetGeometryCRC() const
 {
-	int i;
 	unsigned int crc;
 	idMapPrimitive*	mapPrim;
 
 	crc = 0;
-	for( i = 0; i < GetNumPrimitives(); i++ )
+	for( int i = 0; i < GetNumPrimitives(); i++ )
 	{
 		mapPrim = GetPrimitive( i );
 
@@ -1553,6 +1556,7 @@ bool idMapFile::Parse( const char* filename, bool ignoreRegion, bool osPath )
 	idMapEntity* mapEnt;
 	int i, j, k;
 
+	idStr extension;
 	name = filename;
 	name.StripFileExtension();
 	name.StripFileExtension(); // RB: there might be .map.map
@@ -1572,6 +1576,19 @@ bool idMapFile::Parse( const char* filename, bool ignoreRegion, bool osPath )
 		}
 	}
 
+	bool isGTLF = false;
+	if( !src.IsLoaded() )
+	{
+		// HVG: try loading a .gltf/glb second
+		fullName.SetFileExtension( "glb" );
+		isGTLF = src.LoadFile( fullName, osPath );
+		if( !isGTLF )
+		{
+			fullName.SetFileExtension( "gltf" );
+			isGTLF = src.LoadFile( fullName, osPath );
+		}
+	}
+
 	if( !src.IsLoaded() )
 	{
 		// now try a .map file
@@ -1588,16 +1605,10 @@ bool idMapFile::Parse( const char* filename, bool ignoreRegion, bool osPath )
 	fileTime = src.GetFileTime();
 	entities.DeleteContents( true );
 
-	if( !src.ReadToken( &token ) )
+	if( !isGTLF && !src.ReadToken( &token ) )
 	{
 		return false;
 	}
-
-	// RB: TODO check for JSON in another way
-	//if( token == "{" )
-	//{
-	//	isJSON = true;
-	//}
 
 	if( isJSON )
 	{
@@ -1660,6 +1671,12 @@ bool idMapFile::Parse( const char* filename, bool ignoreRegion, bool osPath )
 				}
 			}
 		}
+	}
+	else if( isGTLF )
+	{
+		GLTF_Parser gltf;
+		gltf.Load( fullName );
+		idMapEntity::GetEntities( gltf.currentAsset, entities, gltf.currentAsset->GetSceneId( gltf_MapSceneName.GetString() ) );
 	}
 	else
 	{
@@ -2760,22 +2777,23 @@ void MapPolygonMesh::SetContents()
 
 unsigned int MapPolygonMesh::GetGeometryCRC() const
 {
-	int i;
-	unsigned int crc;
-
-	crc = 0;
+	unsigned int i;
+	unsigned int crc = 0;
 	for( i = 0; i < verts.Num(); i++ )
 	{
-		crc ^= FloatCRC( verts[i].xyz.x );
-		crc ^= FloatCRC( verts[i].xyz.y );
-		crc ^= FloatCRC( verts[i].xyz.z );
+#if 0
+		crc ^= StringCRC( ( verts[i].xyz * ( i + 1 ) ).ToString() );
+#else
+		crc ^= FloatCRC( verts[i].xyz.x * ( i + 1 ) );
+		crc ^= FloatCRC( verts[i].xyz.y * ( i + 1 ) );
+		crc ^= FloatCRC( verts[i].xyz.z * ( i + 1 ) );
+#endif
 	}
 
 	for( i = 0; i < polygons.Num(); i++ )
 	{
 		const MapPolygon& poly = polygons[i];
-
-		crc ^= StringCRC( poly.GetMaterial() );
+		crc ^= StringCRC( poly.GetMaterial() + idStr( i ) );
 	}
 
 	return crc;

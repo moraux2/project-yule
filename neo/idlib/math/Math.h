@@ -529,6 +529,21 @@ ID_INLINE byte CLAMP_BYTE( int x )
 	return ( ( x ) < 0 ? ( 0 ) : ( ( x ) > 255 ? 255 : ( byte )( x ) ) );
 }
 
+
+ID_INLINE float idMath::RSqrt( float x )
+{
+	int i;
+	float y, r;
+
+	y = x * 0.5f;
+	i = *reinterpret_cast< int* >( &x );
+	i = 0x5f3759df - ( i >> 1 );
+	r = *reinterpret_cast< float* >( &i );
+	r = r * ( 1.5f - r * r * y );
+	return r;
+}
+
+
 /*
 ========================
 idMath::InvSqrt
