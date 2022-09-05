@@ -306,7 +306,9 @@ float iceBot::BotEntityVisibleTest( int viewer, idVec3 eye, idAngles viewangles,
 				//trace through the water
 				contents_mask &= ~( CONTENTS_LAVA | CONTENTS_SLIME | CONTENTS_WATER );
 				//trap_Trace(&trace, trace.endpos, NULL, NULL, end, passent, contents_mask);
-				gameLocal.Trace( trace, trace.endpos, end, contents_mask, passent );
+
+				start = trace.endpos;
+				gameLocal.Trace( trace, start, end, contents_mask, passent );
 				waterfactor = 0.5;
 			}
 		}
