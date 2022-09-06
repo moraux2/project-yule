@@ -5,11 +5,16 @@ set(TP_INCLUDES
 	TypeInfoGen.h
 	)
 set(TP_SOURCES
-	EngineStub.cpp
 	TypeInfoGen.cpp
 	main.cpp
 	precompiled.cpp
 	)
+
+if(WIN32)
+	list(APPEND TP_SOURCES EngineStub.cpp)
+else()
+list(APPEND TP_SOURCES EngineStubPosix.cpp)
+endif()
 
 set(TP_FRAMEWORK_INCLUDES 
 	../framework/CmdSystem.h
