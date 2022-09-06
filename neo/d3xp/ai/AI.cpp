@@ -2258,7 +2258,7 @@ void idAI::trigger_wakeup_targets()
 		ent = gameLocal.FindEntity( name );
 		if( !ent )
 		{
-			idLib::Warning( "Unknown wakeup_target '" + name + "' on entity '" + GetName() + "'" );
+			idLib::Warning( "Unknown wakeup_target '%s' on entity '%s'", name.c_str(), GetName() );
 		}
 		else
 		{

@@ -1832,7 +1832,7 @@ void idAI::idle_followPathEntities( idEntity* pathnode )
 		}
 		else
 		{
-			idLib::Warning( "'" + idStr( GetName() ) + "' encountered an unsupported path entity '" + nodeaction + "' on entity '" + idStr( current_path->GetName() ) + "'\n" );
+			idLib::Warning( "'%s' encountered an unsupported path entity '%s' on entity '%s'\n", GetName(), nodeaction.c_str(), current_path->GetName() );
 			return;
 		}
 

@@ -136,12 +136,12 @@ else()
 	                  )
 	endif()
 	
-	add_executable(typeinfo ${TP_SOURCES_ALL} ${TP_INCLUDES_ALL})
-	add_dependencies(typeinfo idlib)
+	add_executable(typeinfogen ${TP_SOURCES_ALL} ${TP_INCLUDES_ALL})
+	add_dependencies(typeinfogen idlib)
 	if (USE_PRECOMPILED_HEADERS)
-	add_dependencies(typeinfo precomp_header_typeinfo)
+	add_dependencies(typeinfogen precomp_header_typeinfo)
 	endif()
-	target_link_libraries(typeinfo idlib)
+	target_link_libraries(typeinfogen idlib)
 	
 endif()
 	
