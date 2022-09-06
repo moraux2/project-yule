@@ -49,5 +49,5 @@ private:
 private:
 	float						nextAttack;
 	float						nextNoFOVAttack;
-	boolean						tentacleDamage;
+	bool						tentacleDamage;
 };

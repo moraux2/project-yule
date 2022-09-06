@@ -57,13 +57,13 @@ private:
 	idStr		skin_nonade_invis;
 	idProjectile* projectile;
 
-	boolean		show_grenade;
+	bool		show_grenade;
 private:
 	float fuse_end;
 	float current_time;
 	float time_held;
 	float power;
-	boolean exploded;
+	bool exploded;
 
 
 	const idSoundShader* snd_lowammo;

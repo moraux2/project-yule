@@ -140,8 +140,8 @@ int iceMonsterZombieSecurityPistol::check_attacks()
 {
 	float currentTime;
 	int attack_flags;
-	boolean try_attack;
-	boolean reachable;
+	bool try_attack;
+	bool reachable;
 
 	attack_flags = 0;
 

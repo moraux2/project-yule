@@ -6061,7 +6061,7 @@ static classVariableInfo_t iceMonsterZombieSecurityPistol_typeInfo[] = {
 static classVariableInfo_t iceMonsterZombieCommandoTentacle_typeInfo[] = {
 	{ ": float", "nextAttack", (intptr_t)(&((iceMonsterZombieCommandoTentacle *)0)->nextAttack), sizeof( ((iceMonsterZombieCommandoTentacle *)0)->nextAttack ) },
 	{ "float", "nextNoFOVAttack", (intptr_t)(&((iceMonsterZombieCommandoTentacle *)0)->nextNoFOVAttack), sizeof( ((iceMonsterZombieCommandoTentacle *)0)->nextNoFOVAttack ) },
-	{ "boolean", "tentacleDamage", (intptr_t)(&((iceMonsterZombieCommandoTentacle *)0)->tentacleDamage), sizeof( ((iceMonsterZombieCommandoTentacle *)0)->tentacleDamage ) },
+	{ "bool", "tentacleDamage", (intptr_t)(&((iceMonsterZombieCommandoTentacle *)0)->tentacleDamage), sizeof( ((iceMonsterZombieCommandoTentacle *)0)->tentacleDamage ) },
 	{ NULL, 0 }
 };
 
@@ -6466,12 +6466,12 @@ static classVariableInfo_t iceWeaponHandgrenade_typeInfo[] = {
 	{ "idStr", "skin_nonade", (intptr_t)(&((iceWeaponHandgrenade *)0)->skin_nonade), sizeof( ((iceWeaponHandgrenade *)0)->skin_nonade ) },
 	{ "idStr", "skin_nonade_invis", (intptr_t)(&((iceWeaponHandgrenade *)0)->skin_nonade_invis), sizeof( ((iceWeaponHandgrenade *)0)->skin_nonade_invis ) },
 	{ "idProjectile *", "projectile", (intptr_t)(&((iceWeaponHandgrenade *)0)->projectile), sizeof( ((iceWeaponHandgrenade *)0)->projectile ) },
-	{ "boolean", "show_grenade", (intptr_t)(&((iceWeaponHandgrenade *)0)->show_grenade), sizeof( ((iceWeaponHandgrenade *)0)->show_grenade ) },
+	{ "bool", "show_grenade", (intptr_t)(&((iceWeaponHandgrenade *)0)->show_grenade), sizeof( ((iceWeaponHandgrenade *)0)->show_grenade ) },
 	{ ": float", "fuse_end", (intptr_t)(&((iceWeaponHandgrenade *)0)->fuse_end), sizeof( ((iceWeaponHandgrenade *)0)->fuse_end ) },
 	{ "float", "current_time", (intptr_t)(&((iceWeaponHandgrenade *)0)->current_time), sizeof( ((iceWeaponHandgrenade *)0)->current_time ) },
 	{ "float", "time_held", (intptr_t)(&((iceWeaponHandgrenade *)0)->time_held), sizeof( ((iceWeaponHandgrenade *)0)->time_held ) },
 	{ "float", "power", (intptr_t)(&((iceWeaponHandgrenade *)0)->power), sizeof( ((iceWeaponHandgrenade *)0)->power ) },
-	{ "boolean", "exploded", (intptr_t)(&((iceWeaponHandgrenade *)0)->exploded), sizeof( ((iceWeaponHandgrenade *)0)->exploded ) },
+	{ "bool", "exploded", (intptr_t)(&((iceWeaponHandgrenade *)0)->exploded), sizeof( ((iceWeaponHandgrenade *)0)->exploded ) },
 	{ "const idSoundShader *", "snd_lowammo", (intptr_t)(&((iceWeaponHandgrenade *)0)->snd_lowammo), sizeof( ((iceWeaponHandgrenade *)0)->snd_lowammo ) },
 	{ NULL, 0 }
 };

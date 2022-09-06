@@ -5,11 +5,16 @@ set(TP_INCLUDES
 	TypeInfoGen.h
 	)
 set(TP_SOURCES
-	EngineStub.cpp
 	TypeInfoGen.cpp
 	main.cpp
 	precompiled.cpp
 	)
+
+if(WIN32)
+	list(APPEND TP_SOURCES EngineStub.cpp)
+else()
+list(APPEND TP_SOURCES EngineStubPosix.cpp)
+endif()
 
 set(TP_FRAMEWORK_INCLUDES 
 	../framework/CmdSystem.h
@@ -61,6 +66,7 @@ source_group("zlib" FILES ${TP_ZLIB_INCLUDES})
 source_group("zlib" FILES ${TP_ZLIB_SOURCES})
 
 set(TP_PRECOMPILED_SOURCES ${TP_SOURCES_ALL})
+list(REMOVE_ITEM TP_PRECOMPILED_SOURCES ${TP_ZLIB_SOURCES})
 
 include_directories(
 	.
@@ -70,7 +76,6 @@ include_directories(
 
 if(MSVC)
 	list(REMOVE_ITEM TP_PRECOMPILED_SOURCES precompiled.cpp) 
-	list(REMOVE_ITEM TP_PRECOMPILED_SOURCES ${TP_ZLIB_SOURCES})
 
 	#foreach( src_file ${TP_PRECOMPILED_SOURCES} )
 	#	message(STATUS "-include precompiled.h for ${src_file}")
@@ -127,14 +132,16 @@ else()
 	add_custom_target(precomp_header_typeinfo ALL
 	                  COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -x c++-header precompiled.h -o precompiled.h.gch
 	                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-	                  COMMENT "Creating idlib/precompiled.h.gch for idlib"
+	                  COMMENT "Creating idlib/precompiled.h.gch for typeinfogen"
 	                  )
 	endif()
 	
-	add_executable(typeinfo ${TP_SOURCES_ALL} ${TP_INCLUDES_ALL})
+	add_executable(typeinfogen ${TP_SOURCES_ALL} ${TP_INCLUDES_ALL})
+	add_dependencies(typeinfogen idlib)
 	if (USE_PRECOMPILED_HEADERS)
-	add_dependencies(typeinfo precomp_header_typeinfo)
+	add_dependencies(typeinfogen precomp_header_typeinfo)
 	endif()
+	target_link_libraries(typeinfogen idlib)
 	
 endif()
 	

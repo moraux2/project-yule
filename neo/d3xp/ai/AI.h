@@ -905,6 +905,6 @@ private:
 #include "../monsters/Monster_zombie_commando_tentacle.h"
 #include "../monsters/monster_zombie_commando_cgun.h"
 
-#include "../bots/bot.h"
+#include "../bots/Bot.h"
 
 #endif /* !__AI_H__ */
