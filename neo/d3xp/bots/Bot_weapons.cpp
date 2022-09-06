@@ -300,7 +300,7 @@ void idBotWeaponInfoManager::LoadWeaponConfig( char* filename )
 
 		if( weaponinfo[i].projectile.Length() <= 0 )
 		{
-			parser.Error( "weapon %s has no projectile\n", weaponinfo[i].name );
+			parser.Error( "weapon %s has no projectile\n", weaponinfo[i].name.c_str() );
 			return;
 		}
 

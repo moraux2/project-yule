@@ -277,7 +277,7 @@ itemconfig_t* idBotGoalManager::LoadItemConfig( char* filename )
 		common->Warning( "no item info loaded\n" );
 	}
 
-	common->DPrintf( "loaded %s\n", path );
+	common->DPrintf( "loaded %s\n", path.c_str() );
 	itemconfiglocal = ic;
 	itemconfig = &itemconfiglocal;
 
