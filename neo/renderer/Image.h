@@ -243,6 +243,7 @@ typedef enum
 	CF_2D,			// not a cube map
 	CF_NATIVE,		// _px, _nx, _py, etc, directly sent to GL
 	CF_CAMERA,		// _forward, _back, etc, rotated and flipped as needed before sending to GL
+	CF_QUAKE1,		// _ft, _bk, etc, rotated and flipped as needed before sending to GL
 	CF_PANORAMA,	// TODO latlong encoded HDRI panorama typically used by Substance or Blender
 	CF_2D_ARRAY,	// not a cube map but not a single 2d texture either
 	CF_2D_PACKED_MIPCHAIN, // usually 2d but can be an octahedron, packed mipmaps into single 2d texture atlas and limited to dim^2
@@ -283,6 +284,7 @@ ID_INLINE idDeferredImage::~idDeferredImage()
 	}
 }
 
+typedef void ( *ImageGeneratorFunction )( idImage* image, nvrhi::ICommandList* commandList );
 
 #include "BinaryImage.h"
 
@@ -508,12 +510,12 @@ private:
 	void				SetSamplerState( textureFilter_t tf, textureRepeat_t tr );
 
 	// parameters that define this image
-	idStr				imgName;				// game path, including extension (except for cube maps), may be an image program
-	cubeFiles_t			cubeFiles;				// If this is a cube map, and if so, what kind
-	int                 cubeMapSize;
-	void	( *generatorFunction )( idImage* image, nvrhi::ICommandList* commandList );	// NULL for files
-	textureUsage_t		usage;					// Used to determine the type of compression to use
-	idImageOpts			opts;					// Parameters that determine the storage method
+	idStr					imgName;			// game path, including extension (except for cube maps), may be an image program
+	cubeFiles_t				cubeFiles;			// If this is a cube map, and if so, what kind
+	int						cubeMapSize;
+	ImageGeneratorFunction	generatorFunction;	// NULL for files
+	textureUsage_t			usage;				// Used to determine the type of compression to use
+	idImageOpts				opts;				// Parameters that determine the storage method
 
 	// Sampler settings
 	textureFilter_t		filter;
@@ -614,7 +616,7 @@ public:
 
 	// The callback will be issued immediately, and later if images are reloaded or vid_restart
 	// The callback function should call one of the idImage::Generate* functions to fill in the data
-	idImage* 			ImageFromFunction( const char* name, void ( *generatorFunction )( idImage* image, nvrhi::ICommandList* commandList ) );
+	idImage* 			ImageFromFunction( const char* name, ImageGeneratorFunction generatorFunction );
 
 	// scratch images are for internal renderer use.  ScratchImage names should always begin with an underscore
 	idImage* 			ScratchImage( const char* name, idImageOpts* imgOpts, textureFilter_t filter, textureRepeat_t repeat, textureUsage_t usage );
@@ -704,6 +706,8 @@ public:
 	idImage* 			originalCurrentRenderImage;		// currentRenderImage before any changes for stereo rendering
 	idImage* 			loadingIconImage;				// loading icon must exist always
 	idImage* 			hellLoadingIconImage;			// loading icon must exist always
+	idImage*			guiEdit;						// SP: GUI editor image
+	idImage*			guiEditDepthStencilImage;		// SP: Gui-editor image depth-stencil
 
 	//--------------------------------------------------------
 

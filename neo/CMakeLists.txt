@@ -69,7 +69,9 @@ option(USE_DX12
 				"Use DirectX 12" ON)
 
 option(USE_NVRHI_VULKAN
-						"Use Vulkan" OFF)
+				"Use Vulkan" ON)
+
+set(NVRHI_INSTALL OFF)
 
 set(CPU_TYPE "" CACHE STRING "When set, passes this string as CPU-ID which will be embedded into the binary.")
 
@@ -152,15 +154,15 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_definitions(-Werror=format-security)
 	add_definitions(-Werror=format)
 
-	# Compiler check (needs -std=c++11 flag)
+	# Compiler check (needs -std=c++14 flag)
 	include(CheckCXXCompilerFlag)
-	CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-	if(COMPILER_SUPPORTS_CXX11)
-		set(CMAKE_CXX_STANDARD 11)
+	CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
+	if(COMPILER_SUPPORTS_CXX14)
+		set(CMAKE_CXX_STANDARD 14)
 		set(CMAKE_CXX_STANDARD_REQUIRED ON)
 		set(CMAKE_CXX_EXTENSIONS OFF)
 	else()
-		message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+		message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a different C++ compiler.")
 	endif()
 
 	if(CPU_TYPE)
@@ -203,7 +205,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_compile_options(-fno-strict-aliasing)
 
 	# SRS - Make sure OSX can find system headers and add support for minimum OSX runtime version
-	if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    if(APPLE)
 		# SRS - Also add -fasm-blocks otherwise Xcode complains and -Qunused-arguments to silence MMX/SSE unused arg warnings when compiling for Apple arm64
 		add_definitions(-fasm-blocks -Qunused-arguments)
         if(CMAKE_OSX_SYSROOT)
@@ -368,7 +370,7 @@ if(USE_VULKAN)
 	# which causes all kinds of weird segmentation faults because struct sizes don't match
  
     # SRS - Set default VULKAN_SDK location if environment variable not defined on OSX
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT DEFINED ENV{VULKAN_SDK})
+    if(APPLE AND NOT DEFINED ENV{VULKAN_SDK})
         if(NOT USE_MoltenVK)
             # SRS - Vulkan SDK installer copies standard vulkan headers and libs to /usr/local on OSX
             set(ENV{VULKAN_SDK} /usr/local)
@@ -425,7 +427,7 @@ if(USE_VULKAN)
         add_definitions(-DUSE_VULKAN)
         include_directories($ENV{VULKAN_SDK}/include)
 
-		if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        if(APPLE)
             # SRS - Enable Beta extensions for VULKAN_SDK portability subset features on OSX
             add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
             # SRS - Optionally use MoltenVK headers/library for runtime config functions on OSX
@@ -450,7 +452,7 @@ elseif(USE_NVRHI_VULKAN)
 	# which causes all kinds of weird segmentation faults because struct sizes don't match
  
     # SRS - Set default VULKAN_SDK location if environment variable not defined on OSX
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT DEFINED ENV{VULKAN_SDK})
+    if(APPLE AND NOT DEFINED ENV{VULKAN_SDK})
         if(NOT USE_MoltenVK)
             # SRS - Vulkan SDK installer copies standard vulkan headers and libs to /usr/local on OSX
             set(ENV{VULKAN_SDK} /usr/local)
@@ -459,6 +461,37 @@ elseif(USE_NVRHI_VULKAN)
         endif()
     endif()
 
+	# Use FindVulkan module added with CMAKE 3.7
+	if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
+		message( STATUS "Using module to find Vulkan" )
+		find_package(Vulkan)
+	endif()
+
+	if(NOT Vulkan_FOUND)
+		message(FATAL_ERROR "Could not find Vulkan library!")
+	else()
+        include_directories($ENV{VULKAN_SDK}/include)
+
+        if(APPLE)
+            # SRS - Enable Beta extensions for VULKAN_SDK portability subset features on OSX
+            add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
+            # SRS - Optionally use MoltenVK headers/library for runtime config functions on OSX
+            if(USE_MoltenVK)
+                add_definitions(-DUSE_MoltenVK)
+                include_directories($ENV{VULKAN_SDK}/../MoltenVK/include)
+                set(Vulkan_LIBRARY $ENV{VULKAN_SDK}/../MoltenVK/dylib/macOS/libMoltenVK.dylib CACHE FILEPATH "Path to MoltenVK library." FORCE)
+            endif()
+		endif()
+		message(STATUS "Using Vulkan: " ${Vulkan_LIBRARY})
+	endif()
+	
+	# Eric: For use with SDL2/Vulkan
+	if(UNIX)
+        # SRS - For UNIX-like target OSs use the generic SDL Vulkan platform
+        add_definitions(-DUSE_NVRHI_SDL)
+	elseif(WIN32)
+		add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
+	endif()
 	# Use FindVulkan module added with CMAKE 3.7
 	if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
 		message( STATUS "Using module to find Vulkan" )
@@ -1067,6 +1100,9 @@ file(GLOB IMGUI_EDITOR_SOURCES tools/imgui/*.cpp)
 file(GLOB IMGUI_EDITOR_LIGHT_INCLUDES tools/imgui/lighteditor/*.h)
 file(GLOB IMGUI_EDITOR_LIGHT_SOURCES tools/imgui/lighteditor/*.cpp)
 
+file(GLOB IMGUI_EDITOR_UTIL_INCLUDES tools/imgui/util/*.h)
+file(GLOB IMGUI_EDITOR_UTIL_SOURCES tools/imgui/util/*.cpp)
+
 file(GLOB DOOMCLASSIC_INCLUDES ../doomclassic/doom/*.h)
 file(GLOB DOOMCLASSIC_SOURCES ../doomclassic/doom/*.cpp)
 
@@ -1184,7 +1220,7 @@ file(GLOB SDL_SOURCES sys/sdl/*.cpp)
 
 # Eric: Utilize either the Vulkan or GL implementation of SDL
 if(UNIX)
-	if(USE_VULKAN)
+    if(USE_VULKAN OR USE_NVRHI)
 		get_filename_component(sdl_glimp_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/sdl/sdl_glimp.cpp ABSOLUTE)
 		list(REMOVE_ITEM SDL_SOURCES "${sdl_glimp_cpp_full_path}")
 	else()
@@ -1429,6 +1465,8 @@ source_group("tools\\imgui" FILES ${IMGUI_EDITOR_SOURCES})
 source_group("tools\\imgui\\lighteditor" FILES ${IMGUI_EDITOR_LIGHT_INCLUDES})
 source_group("tools\\imgui\\lighteditor" FILES ${IMGUI_EDITOR_LIGHT_SOURCES})
 
+source_group("tools\\imgui\\util" FILES ${IMGUI_EDITOR_UTIL_INCLUDES})
+source_group("tools\\imgui\\util" FILES ${IMGUI_EDITOR_UTIL_SOURCES})
 
 set(RBDOOM3_INCLUDES
 			${AAS_INCLUDES}
@@ -1485,6 +1523,7 @@ set(RBDOOM3_INCLUDES
 			${TOOLS_INCLUDES}
 			${IMGUI_EDITOR_INCLUDES}
 			${IMGUI_EDITOR_LIGHT_INCLUDES}
+			${IMGUI_EDITOR_UTIL_INCLUDES}
 			
 			${GAMED3XP_INCLUDES}
 			${GAMED3XP_AI_INCLUDES} 
@@ -1534,6 +1573,7 @@ set(RBDOOM3_SOURCES
 			
 			${IMGUI_EDITOR_SOURCES}
 			${IMGUI_EDITOR_LIGHT_SOURCES}
+			${IMGUI_EDITOR_UTIL_SOURCES}
 			
 			${GAMED3XP_SOURCES}
 			${GAMED3XP_AI_SOURCES}
@@ -1546,6 +1586,19 @@ set(RBDOOM3_SOURCES
 			${GAMED3XP_PHYSICS_SOURCES}
 			${GAMED3XP_SCRIPT_SOURCES}
 			)
+
+macro(AddSubdirectory dirName)
+	file(GLOB DIR_INCLUDES ${dirName}/*.h)
+	file(GLOB DIR_SOURCES ${dirName}/*.cpp)
+
+	source_group(${dirName} FILES ${DIR_INCLUDES})
+	source_group(${dirName} FILES ${DIR_SOURCES})
+
+	list(APPEND RBDOOM3_INCLUDES ${DIR_INCLUDES})
+	list(APPEND RBDOOM3_SOURCES ${DIR_SOURCES})
+endmacro()
+
+AddSubdirectory( tools/imgui/afeditor )
 
 if(DOOM_CLASSIC)
 	add_definitions(-DUSE_DOOMCLASSIC)
@@ -1820,7 +1873,7 @@ else()
 			set(SDLx_LIBRARY ${SDL_LIBRARY})
 		endif()
 
-		if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        if(APPLE)
 			list(REMOVE_ITEM POSIX_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/platform_linux.cpp)
 		else()
 			list(REMOVE_ITEM POSIX_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/platform_osx.cpp)
@@ -1835,7 +1888,7 @@ else()
 			add_definitions(-DUSE_OPENAL)
 
 			# SRS - Added support for OpenAL Soft headers on OSX (vs default macOS SDK headers)
-			if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT OPENAL_INCLUDE_DIR MATCHES "SDKs/MacOSX.*\.sdk")
+            if(APPLE AND NOT OPENAL_INCLUDE_DIR MATCHES "SDKs/MacOSX.*\.sdk")
 				include_directories(${OPENAL_INCLUDE_DIR})
 				add_definitions(-DUSE_OPENAL_SOFT_INCLUDES)
 			endif()
@@ -1872,7 +1925,13 @@ else()
                     list(APPEND Vulkan_LIBRARIES glslang-default-resource-limits)
                 endif()
             endif()
+        elseif(USE_NVRHI)
+            list(APPEND RBDOOM3_INCLUDES ${RENDERER_NVRHI_INCLUDES})
+            list(APPEND RBDOOM3_SOURCES ${RENDERER_NVRHI_SOURCES})
 
+            set(OpenGL_LIBRARIES
+                opengl32
+                glu32)
         else()
 			find_package(OpenGL REQUIRED)
 			include_directories(${OPENGL_INCLUDE_DIRS})
@@ -1953,6 +2012,9 @@ else()
 
 	add_executable(DoomIcedHellfire WIN32 ${RBDOOM3_SOURCES})
 
+	if(USE_NVRHI_VULKAN)
+        add_dependencies(RBDoom3BFG nvrhi_vk)
+    endif()
 	if (USE_PRECOMPILED_HEADERS)
 		# make sure precompiled header is created before executable is compiled
 		add_dependencies(DoomIcedHellfire precomp_header_rbdoom3bfg idlib typeinfogen)
@@ -1972,7 +2034,7 @@ else()
 			)
 
 	if(NOT WIN32)
-		if(NOT "${CMAKE_SYSTEM}" MATCHES "Darwin")
+        if(NOT APPLE)
 			set(RT_LIBRARY rt)
 		endif()
 
@@ -1992,11 +2054,6 @@ else()
 	    	${CMAKE_DL_LIBS}
 			)
 	endif()
-endif()
-
-if(USE_DX11)
-	target_compile_definitions(DoomIcedHellfire PUBLIC USE_DX11=1)
-	target_link_libraries(DoomIcedHellfire nvrhi_d3d11)
 endif()
 
 if(USE_DX12)

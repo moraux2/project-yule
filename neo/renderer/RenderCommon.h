@@ -689,7 +689,7 @@ struct viewDef_t
 	idImage* 			radianceImages[3];			// cubemap image used for specular IBL by backend
 	idVec4				radianceImageBlends;		// blending weights
 
-	Framebuffer*		targetRender;				// The framebuffer to render to
+	Framebuffer*		targetRender;				// SP: The framebuffer to render to
 };
 
 
@@ -1109,7 +1109,6 @@ extern idCVar r_windowWidth;
 extern idCVar r_windowHeight;
 
 extern idCVar r_debugContext;				// enable various levels of context debug
-extern idCVar r_glDriver;					// "opengl32", etc
 #if defined(USE_NVRHI)
 	extern idCVar r_useValidationLayers;
 #endif
