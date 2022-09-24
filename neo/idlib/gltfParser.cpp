@@ -2073,7 +2073,6 @@ bool GLTF_Parser::Parse()
 		}
 	}
 	//parser should be at end.
-	parser.ReadToken( &token );
 	if( parser.EndOfFile() )
 	{
 		common->Printf( "%s ^2loaded\n", currentFile.c_str() );
