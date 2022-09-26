@@ -4810,6 +4810,14 @@ intptr_t idWorldspawn::Invoke(const char *functionName, void *param1) {
 		Spawn();
 		return 0;
 	};
+	if(functionNameHash == 334799) { // Event_PlayBackgroundMusic
+		Event_PlayBackgroundMusic();
+		return 0;
+	};
+	if(functionNameHash == 164337) { // SetMusicTrack
+		SetMusicTrack();
+		return 0;
+	};
 	if(functionNameHash == 153439) { // Event_Remove
 		Event_Remove();
 		return 0;
@@ -4821,6 +4829,12 @@ intptr_t idWorldspawn::Invoke(const char *functionName, void *param1) {
 bool idWorldspawn::HasNativeFunction(const char *functionName) {
 	int functionNameHash = idStr::Hash(functionName);
 	if(functionNameHash == 63102) { // Spawn
+		return true;
+	};
+	if(functionNameHash == 334799) { // Event_PlayBackgroundMusic
+		return true;
+	};
+	if(functionNameHash == 164337) { // SetMusicTrack
 		return true;
 	};
 	if(functionNameHash == 153439) { // Event_Remove

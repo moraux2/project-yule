@@ -7,7 +7,7 @@
 
 	This file has been generated with the Type Info Generator v1.1 (c) 2004 id Software
 
-	958 constants
+	959 constants
 	92 enums
 	474 classes/structs/unions
 	3 templates
@@ -283,6 +283,7 @@ static constantInfo_t constantInfo[] = {
 	{ "int", "SND_CHANNEL_RADIO", "11" },
 	{ "int", "SND_CHANNEL_AMBIENT", "12" },
 	{ "int", "SND_CHANNEL_DAMAGE", "13" },
+	{ "int", "SND_CHANNEL_MUSIC", "14" },
 	{ "const float", "DEFAULT_GRAVITY", "1066.0" },
 	{ "const int", "CINEMATIC_SKIP_DELAY", "0(2.0)" },
 	{ "int", "FORCEFIELD_UNIFORM", "0" },
@@ -1288,6 +1289,7 @@ static enumValueInfo_t gameSoundChannel_t_typeInfo[] = {
 	{ "SND_CHANNEL_RADIO", 11 },
 	{ "SND_CHANNEL_AMBIENT", 12 },
 	{ "SND_CHANNEL_DAMAGE", 13 },
+	{ "SND_CHANNEL_MUSIC", 14 },
 	{ NULL, 0 }
 };
 
@@ -4669,6 +4671,7 @@ static classVariableInfo_t EnvironmentProbe_typeInfo[] = {
 };
 
 static classVariableInfo_t idWorldspawn_typeInfo[] = {
+	{ "idStr", "musicTrack", (intptr_t)(&((idWorldspawn *)0)->musicTrack), sizeof( ((idWorldspawn *)0)->musicTrack ) },
 	{ NULL, 0 }
 };
 
