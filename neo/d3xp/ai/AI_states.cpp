@@ -354,7 +354,7 @@ stateResult_t idAI::state_Spawner( stateParms_t* parms )
 				triggerCount--;
 				idDict dict = spawnArgs;
 				dict.Set( "spawner", "0" );
-				dict.Set( "name", name.c_str() + 1 );
+				dict.Set( "name", ( name + i ).c_str() );
 				if( GetKey( "spawn_target" ) != "" )
 				{
 					dict.Set( "target", GetKey( "spawn_target" ) );

@@ -1000,18 +1000,19 @@ void idAI::Spawn()
 		teleportType = GetIntKey( "teleport" );
 		triggerAnim = GetKey( "trigger_anim" );
 
-		if( GetIntKey( "spawner" ) )
-		{
-			stateThread.SetState( "state_Spawner" );
-		}
-
 		if( !GetIntKey( "ignore_flashlight" ) )
 		{
 			// allow waking up from the flashlight
 			Event_WakeOnFlashlight( true );
 		}
 
-		if( triggerAnim != "" )
+		// The original script does not set state but extends init over multiple frames.
+		// to fix the spawner, state_Spawner is exclusive for now.
+		if( GetIntKey( "spawner" ) )
+		{
+			stateThread.SetState( "state_Spawner" );
+		}
+		else if( triggerAnim != "" )
 		{
 			stateThread.SetState( "state_TriggerAnim" );
 		}
@@ -1288,12 +1289,15 @@ void idAI::Think()
 		// jmarshall end
 
 		// clear out the enemy when he dies or is hidden
-		idActor* enemyEnt = enemy.GetEntity();
-		if( enemyEnt )
+		if( enemy.IsValid() )
 		{
-			if( enemyEnt->health <= 0 )
+			idActor* enemyEnt = enemy.GetEntity();
+			if( enemyEnt )
 			{
-				EnemyDead();
+				if( enemyEnt->health <= 0 )
+				{
+					EnemyDead();
+				}
 			}
 		}
 
