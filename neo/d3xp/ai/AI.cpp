@@ -993,6 +993,7 @@ void idAI::Spawn()
 	if( supportsNative )
 	{
 		stateThread.SetOwner( this );
+
 		Init();
 
 		isAwake = false;
