@@ -426,46 +426,45 @@ void idAI::Event_CheckForEnemy( float use_fov )
 {
 	idThread::ReturnFloat( checkForEnemy( use_fov ) );
 }
-
 /*
 =====================
-idAI::Event_FindEnemyAI
+idAI::FindEnemyAI
 =====================
 */
-void idAI::Event_FindEnemyAI( int useFOV )
+idActor* idAI::FindEnemyAI( int useFOV )
 {
-	idEntity*	ent;
-	idActor*		actor;
-	idActor*		bestEnemy;
+	idEntity* 	ent;
+	idActor* 	actor;
+	idActor* 	bestEnemy;
 	float		bestDist;
 	float		dist;
 	idVec3		delta;
 	pvsHandle_t pvs;
 
-	pvs = gameLocal.pvs.SetupCurrentPVS( GetPVSAreas(), GetNumPVSAreas() );
+	pvs = gameLocal.pvs.SetupCurrentPVS( GetPVSAreas( ), GetNumPVSAreas( ) );
 
 	bestDist = idMath::INFINITUM;
 	bestEnemy = NULL;
-	for( ent = gameLocal.activeEntities.Next(); ent != NULL; ent = ent->activeNode.Next() )
+	for( ent = gameLocal.activeEntities.Next( ); ent != NULL; ent = ent->activeNode.Next( ) )
 	{
 		if( ent->fl.hidden || ent->fl.isDormant || !ent->IsType( idActor::Type ) )
 		{
 			continue;
 		}
 
-		actor = static_cast<idActor*>( ent );
+		actor = static_cast< idActor* >( ent );
 		if( ( actor->health <= 0 ) || !( ReactionTo( actor ) & ATTACK_ON_SIGHT ) )
 		{
 			continue;
 		}
 
-		if( !gameLocal.pvs.InCurrentPVS( pvs, actor->GetPVSAreas(), actor->GetNumPVSAreas() ) )
+		if( !gameLocal.pvs.InCurrentPVS( pvs, actor->GetPVSAreas( ), actor->GetNumPVSAreas( ) ) )
 		{
 			continue;
 		}
 
-		delta = physicsObj.GetOrigin() - actor->GetPhysics()->GetOrigin();
-		dist = delta.LengthSqr();
+		delta = physicsObj.GetOrigin( ) - actor->GetPhysics( )->GetOrigin( );
+		dist = delta.LengthSqr( );
 		if( ( dist < bestDist ) && CanSee( actor, useFOV != 0 ) )
 		{
 			bestDist = dist;
@@ -474,7 +473,18 @@ void idAI::Event_FindEnemyAI( int useFOV )
 	}
 
 	gameLocal.pvs.FreeCurrentPVS( pvs );
-	idThread::ReturnEntity( bestEnemy );
+	return bestEnemy;
+}
+
+
+/*
+=====================
+idAI::Event_FindEnemyAI
+=====================
+*/
+void idAI::Event_FindEnemyAI( int useFOV )
+{
+	idThread::ReturnEntity( FindEnemyAI( useFOV ) );
 }
 
 /*
@@ -1961,12 +1971,7 @@ void idAI::Event_CanHitEnemyFromAnim( const char* animname )
 	idThread::ReturnInt( CanHitEnemyFromAnim( animname ) );
 }
 
-/*
-=====================
-idAI::Event_CanHitEnemyFromJoint
-=====================
-*/
-void idAI::Event_CanHitEnemyFromJoint( const char* jointname )
+bool idAI::CanHitEnemyFromJoint( const char* jointname )
 {
 	trace_t	tr;
 	idVec3	muzzle;
@@ -1977,15 +1982,13 @@ void idAI::Event_CanHitEnemyFromJoint( const char* jointname )
 	idActor* enemyEnt = enemy.GetEntity();
 	if( !AI_ENEMY_VISIBLE || !enemyEnt )
 	{
-		idThread::ReturnInt( false );
-		return;
+		return false;
 	}
 
 	// don't check twice per frame
 	if( gameLocal.time == lastHitCheckTime )
 	{
-		idThread::ReturnInt( lastHitCheckResult );
-		return;
+		return lastHitCheckResult;
 	}
 
 	lastHitCheckTime = gameLocal.time;
@@ -2040,7 +2043,17 @@ void idAI::Event_CanHitEnemyFromJoint( const char* jointname )
 		lastHitCheckResult = false;
 	}
 
-	idThread::ReturnInt( lastHitCheckResult );
+	return lastHitCheckResult;
+}
+
+/*
+=====================
+idAI::Event_CanHitEnemyFromJoint
+=====================
+*/
+void idAI::Event_CanHitEnemyFromJoint( const char* jointname )
+{
+	idThread::ReturnInt( CanHitEnemyFromJoint( jointname ) );
 }
 
 /*

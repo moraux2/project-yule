@@ -299,8 +299,7 @@ public:
 protected:
 	virtual void			Init() { }
 
-	bool					checkForEnemy( float use_fov );
-
+	virtual bool			checkForEnemy( float use_fov );
 private:
 	void					idle_followPathEntities( idEntity* pathnode );
 protected:
@@ -479,6 +478,7 @@ public:
 
 // jmarshall begin
 	virtual idThread*		ConstructScriptObject();
+	void					ClearEnemy();
 protected:
 	virtual void			AI_Begin() { };
 	virtual int				check_attacks()
@@ -569,7 +569,6 @@ protected:
 	bool					TurnToward( const idVec3& pos );
 
 	// enemy management
-	void					ClearEnemy();
 	bool					EnemyPositionValid() const;
 	void					SetEnemyPosition();
 	void					UpdateEnemyPosition();
@@ -668,6 +667,8 @@ protected:
 	idVec3					GetJumpVelocity( const idVec3& pos, float speed, float max_height );
 	void					Event_Activate( idEntity* activator );
 	idActor*				FindEnemy( int useFOV );
+	idActor*				FindEnemyAI( int useFOV );
+
 	void					Event_Touch( idEntity* other, trace_t* trace );
 	void					Event_FindEnemy( int useFOV );
 	void					Event_FindEnemyAI( int useFOV );
@@ -742,6 +743,7 @@ protected:
 	void					Event_PredictEnemyPos( float time );
 	void					Event_CanHitEnemy();
 	void					Event_CanHitEnemyFromAnim( const char* animname );
+	bool					CanHitEnemyFromJoint( const char* jointname );
 	void					Event_CanHitEnemyFromJoint( const char* jointname );
 	void					Event_EnemyPositionValid();
 	void					Event_ChargeAttack( const char* damageDef );
@@ -904,6 +906,7 @@ private:
 #include "../monsters/Monster_zombie_security_pistol.h"
 #include "../monsters/Monster_zombie_commando_tentacle.h"
 #include "../monsters/monster_zombie_commando_cgun.h"
+#include "../monsters/monster_turret.h"
 
 #include "../bots/Bot.h"
 
