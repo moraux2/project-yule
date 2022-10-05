@@ -993,6 +993,7 @@ void idAI::Spawn()
 	if( supportsNative )
 	{
 		stateThread.SetOwner( this );
+
 		Init();
 
 		isAwake = false;
@@ -1008,9 +1009,10 @@ void idAI::Spawn()
 
 		// The original script does not set state but extends init over multiple frames.
 		// to fix the spawner, state_Spawner is exclusive for now.
-		if ( GetIntKey( "spawner" ) ) {
+		if( GetIntKey( "spawner" ) )
+		{
 			stateThread.SetState( "state_Spawner" );
-		} 
+		}
 		else if( triggerAnim != "" )
 		{
 			stateThread.SetState( "state_TriggerAnim" );
@@ -1023,7 +1025,7 @@ void idAI::Spawn()
 		{
 			stateThread.SetState( "state_TriggerHidden" );
 		}
-		else 
+		else
 		{
 			stateThread.SetState( "state_WakeUp" );
 		}
@@ -1288,7 +1290,7 @@ void idAI::Think()
 		// jmarshall end
 
 		// clear out the enemy when he dies or is hidden
-		if ( enemy.IsValid() )
+		if( enemy.IsValid() )
 		{
 			idActor* enemyEnt = enemy.GetEntity();
 			if( enemyEnt )
