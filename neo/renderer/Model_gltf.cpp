@@ -392,7 +392,7 @@ void idRenderModelGLTF::UpdateMd5Joints()
 	for( int i = 0 ; i < bones.Num(); i++ )
 	{
 		gltfNode* node = nodeList[bones[i]];
-		if( i && node->parent && node->parent != root )
+		if( i && node->parent && node->parent != root && currentSkin->name != node->parent->name )
 		{
 			if( node->parent->name == ovrBoneName )
 			{
@@ -994,7 +994,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 
 void idRenderModelGLTF::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp /*= NULL */ ) const
 {
-	idRenderModelStatic::WriteBinaryModel( file );
+	idRenderModelStatic::WriteBinaryModel( file , _timeStamp );
 
 	if( file == NULL )
 	{
@@ -1124,7 +1124,7 @@ void idRenderModelGLTF::LoadModel()
 	{
 		auto* node = nodes[bones[i]];
 
-		if( i && node->parent && node->parent != root )
+		if( i && node->parent && node->parent != root && ( currentSkin && ( node->parent->name != currentSkin->name ) ) )
 		{
 			md5joints[i].parent = FindMD5Joint( node->parent->name );
 		}

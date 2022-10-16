@@ -84,13 +84,13 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 				if( teleportType == 1 )
 				{
 					Event_StartFx( "fx_teleport1" );
-					parms->Wait( 1.6 );
+					parms->Wait( 1.6f );
 					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 				else if( teleportType == 2 )
 				{
 					Event_StartFx( "fx_teleport2" );
-					parms->Wait( 2.6 );
+					parms->Wait( 2.6f );
 					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 				else if( teleportType == 3 )
@@ -102,7 +102,7 @@ stateResult_t idAI::state_TeleportTriggered( stateParms_t* parms )
 				else
 				{
 					Event_StartFx( "fx_teleport" );
-					parms->Wait( 0.6 );
+					parms->Wait( 0.6f );
 					parms->stage = STAGE_TRIGGER_TELEPORT_CUSTOM_ANIMATION;
 				}
 			}
@@ -256,7 +256,6 @@ idAI::state_WakeUp
 stateResult_t idAI::state_WakeUp( stateParms_t* parms )
 {
 	float	waittime;
-	idEntity* path;
 	idEntity* enemy;
 
 	enum
@@ -316,7 +315,7 @@ stateResult_t idAI::state_Spawner( stateParms_t* parms )
 {
 	idEntity* ent;
 	float	maxSpawn;
-	float	i;
+	int	i;
 	idStr	name;
 
 	if( parms->stage == 0 )
@@ -364,6 +363,7 @@ stateResult_t idAI::state_Spawner( stateParms_t* parms )
 				gameLocal.SpawnEntityDef( dict, &ent );
 				scriptThread->Event_Trigger( ent );
 			}
+			parms->Wait( GetFloatKey( "wait" ) );
 		}
 	}
 
@@ -403,8 +403,6 @@ stateResult_t idAI::wait_for_enemy( stateParms_t* parms )
 
 	return SRESULT_DONE;
 }
-
-
 
 /*
 =====================

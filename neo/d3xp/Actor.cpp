@@ -182,7 +182,7 @@ void idAnimState::SetState( const char* statename, int blendFrames )
 	{
 		stateThread.SetState( statename, animBlendFrames );
 	}
-	
+
 	animBlendFrames = blendFrames;
 	lastAnimBlendFrames = blendFrames;
 	disabled = false;

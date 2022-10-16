@@ -17,6 +17,7 @@ protected:
 
 	void						destory( ) { };
 
+	bool						canHit( );
 	void						spawn_light( ) { };
 	void						light_off( ) { };
 	void						light_on( ) { };
@@ -25,7 +26,8 @@ protected:
 	stateResult_t				Torso_Death( stateParms_t* parms );
 	stateResult_t				Torso_Idle( stateParms_t* parms ) ;
 	stateResult_t				Torso_Attack( stateParms_t* parms );
-	stateResult_t				Torso_CustomCycle( stateParms_t* parms );;
+	stateResult_t				Torso_CustomCycle( stateParms_t* parms );
+	stateResult_t				state_Killed( stateParms_t* parms );
 
 	virtual bool				checkForEnemy( float use_fov ) override;
 private:
@@ -36,7 +38,6 @@ private:
 	stateResult_t				state_Begin( stateParms_t* parms );
 	stateResult_t				state_Idle( stateParms_t* parms );
 	stateResult_t				state_Combat( stateParms_t* parms );
-	stateResult_t				state_Killed( stateParms_t* parms );
 	stateResult_t				combat_attack( stateParms_t* parms );
 	stateResult_t				state_Disabled( stateParms_t* parms );
 
@@ -46,4 +47,9 @@ private:
 	boolean		light_is_on;
 	float		attackTime;
 
+	int			barrelCount;
+	int			currentBarrel;
+	idStr		currentBarrelStr;
+
+	idList< jointHandle_t> flashJointWorldHandles;
 };

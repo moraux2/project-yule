@@ -341,10 +341,12 @@ idRenderModel* idRenderModelManagerLocal::GetModel( const char* _modelName, bool
 	// determine which subclass of idRenderModel to initialize
 
 	idRenderModel* model = NULL;
+	bool isGLTF = false;
 	// HvG: GLTF 2 support
 	if( ( extension.Icmp( GLTF_GLB_EXT ) == 0 ) || ( extension.Icmp( GLTF_EXT ) == 0 ) )
 	{
 		model = new( TAG_MODEL ) idRenderModelGLTF;
+		isGLTF = true;
 	}
 	// RB: Collada DAE and Wavefront OBJ
 	else if( ( extension.Icmp( "dae" ) == 0 ) || ( extension.Icmp( "obj" ) == 0 ) 	// RB: Collada DAE and Wavefront OBJ
@@ -379,7 +381,23 @@ idRenderModel* idRenderModelManagerLocal::GetModel( const char* _modelName, bool
 		generatedFileName.SetFileExtension( va( "b%s", extension.c_str() ) );
 
 		// Get the timestamp on the original file, if it's newer than what is stored in binary model, regenerate it
-		ID_TIME_T sourceTimeStamp = fileSystem->GetTimestamp( canonical );
+		ID_TIME_T sourceTimeStamp;
+
+		if( isGLTF )
+		{
+			idStr gltfFileName = idStr( canonical );
+			int gltfMeshId = -1;
+			idStr gltfMeshName;
+			gltfManager::ExtractIdentifier( gltfFileName, gltfMeshId, gltfMeshName );
+
+			sourceTimeStamp = fileSystem->GetTimestamp( gltfFileName );
+		}
+		else
+		{
+			sourceTimeStamp = fileSystem->GetTimestamp( canonical );
+		}
+
+
 
 		idFileLocal file( fileSystem->OpenFileReadMemory( generatedFileName ) );
 
@@ -398,7 +416,7 @@ idRenderModel* idRenderModelManagerLocal::GetModel( const char* _modelName, bool
 				{
 					idFileLocal outputFile( fileSystem->OpenFileWrite( generatedFileName, "fs_basepath" ) );
 					idLib::Printf( "Writing %s\n", generatedFileName.c_str() );
-					model->WriteBinaryModel( outputFile );
+					model->WriteBinaryModel( outputFile, &sourceTimeStamp );
 				}
 				// RB end
 			} /* else {

@@ -2072,15 +2072,8 @@ bool GLTF_Parser::Parse()
 			parser.ExpectTokenString( "}" );
 		}
 	}
-	//parser should be at end.
-	if( parser.EndOfFile() )
-	{
-		common->Printf( "%s ^2loaded\n", currentFile.c_str() );
-	}
-	else
-	{
-		common->FatalError( "%s not fully loaded.", currentFile.c_str() );
-	}
+
+	common->Printf( "%s ^2loaded\n", currentFile.c_str() );
 
 	buffersDone = false;
 	bufferViewsDone = false;

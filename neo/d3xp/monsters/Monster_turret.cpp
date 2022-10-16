@@ -18,6 +18,7 @@ void iceMonster_Turret::Init( )
 	attack_monsters = false;
 	light_is_on = false;
 	attackTime = 0.0f;
+	currentBarrel = 1;
 
 	// don't take damage
 	Event_IgnoreDamage( );
@@ -36,6 +37,24 @@ void iceMonster_Turret::Init( )
 		spawn_light( );
 	}
 
+	spawnArgs.GetInt( "barrels", "1", barrelCount );
+
+	flashJointWorldHandles.SetGranularity( 1 );
+	flashJointWorldHandles.Alloc() = flashJointWorld;
+	if( barrelCount > 1 )
+	{
+		flashJointWorldHandles.SetGranularity( 1 );
+		idStr currentFlashStr;
+		for( int i = 1 ; i < barrelCount; i++ )
+		{
+			currentFlashStr = "flash";
+			char buf[128];
+			buf[0] = '.';
+			sprintf( &buf[1], "%03d", i );
+			currentFlashStr += buf;
+			flashJointWorldHandles.Alloc() = animator.GetJointHandle( currentFlashStr );
+		}
+	}
 	Event_AnimState( ANIMCHANNEL_TORSO, "Torso_Idle", 0 );
 }
 
@@ -85,7 +104,7 @@ stateResult_t	iceMonster_Turret::combat_attack( stateParms_t* parms )
 
 	if( parms->stage == 2 )
 	{
-		if( AI_ENEMY_VISIBLE && CanHitEnemyFromJoint( "barrel" ) )
+		if( AI_ENEMY_VISIBLE && canHit() )
 		{
 			Event_LookAtEnemy( 1 );
 			//waitframe();
@@ -115,6 +134,21 @@ stateResult_t	iceMonster_Turret::combat_attack( stateParms_t* parms )
 	//should never hit, satisfying compiler.
 	assert( 0, "DANGER DANGER, MR ROBINSON" );
 	return SRESULT_DONE;
+}
+
+bool iceMonster_Turret::canHit()
+{
+	currentBarrelStr = "barrel";
+	if( barrelCount > 1  && currentBarrel > 1 )
+	{
+		char buf[128];
+		buf[0] = '.';
+		sprintf( &buf[1], "%03d", currentBarrel - 1 );
+		currentBarrelStr += buf;
+
+	}
+
+	return CanHitEnemyFromJoint( currentBarrelStr );
 }
 
 stateResult_t iceMonster_Turret::Torso_Death( stateParms_t* parms )
@@ -175,7 +209,12 @@ stateResult_t iceMonster_Turret::Torso_Attack( stateParms_t* parms )
 			{
 				int time;
 				StartSound( "snd_fire", ( s_channelType ) SND_CHANNEL_WEAPON, 0, false, &time );
-				Event_AttackMissile( "barrel" );
+				flashJointWorld = flashJointWorldHandles[currentBarrel - 1];
+				Event_AttackMissile( currentBarrelStr );
+				if( ++currentBarrel > barrelCount )
+				{
+					currentBarrel = 1;
+				}
 				parms->Wait( TURRET_FIRE_RATE );
 			}
 		}
@@ -245,7 +284,7 @@ stateResult_t iceMonster_Turret::state_Combat( stateParms_t* parms )
 		parms->param1 = gameLocal.SysScriptTime() + TURRET_SHUTDOWN_TIME;
 	}
 
-	Event_LookAtEnemy( 100 );
+	Event_LookAtEnemy( 1 );
 
 	if( AI_ENEMY_DEAD )
 	{
@@ -261,7 +300,7 @@ stateResult_t iceMonster_Turret::state_Combat( stateParms_t* parms )
 
 	if( AI_ENEMY_VISIBLE )
 	{
-		if( CanHitEnemyFromJoint( "barrel" ) )
+		if( canHit() )
 		{
 			if( combat_attack( parms ) != SRESULT_DONE )
 			{
@@ -277,7 +316,6 @@ stateResult_t iceMonster_Turret::state_Combat( stateParms_t* parms )
 	{
 		if( parms->param1 < gameLocal.SysScriptTime( ) )
 		{
-			Event_LookAtEnemy( 0 );
 			ClearEnemy( );
 			Event_SetState( "state_Idle" );
 			fire = false;
@@ -304,8 +342,6 @@ stateResult_t iceMonster_Turret::state_Disabled( stateParms_t* parms )
 		case STAGE_SHUTDOWN:
 			Event_StartSound( "snd_shutdown", SND_CHANNEL_VOICE, false );
 
-			Event_LookAtEnemy( 0 );
-
 			// wait till we stop firing and bullets are out of the air
 			attackTime = 0;
 			fire = false;
@@ -320,7 +356,6 @@ stateResult_t iceMonster_Turret::state_Disabled( stateParms_t* parms )
 			parms->Wait( 0.2f );
 
 			// tell all enemies to forget about us
-
 			enemy = NextEnemy( NULL );
 			while( enemy )
 			{
@@ -392,5 +427,6 @@ stateResult_t iceMonster_Turret::state_Killed( stateParms_t* parms )
 	Event_WaitAction( "dead" );
 
 	Event_StopThinking( );
+
 	return SRESULT_DONE;
 }
