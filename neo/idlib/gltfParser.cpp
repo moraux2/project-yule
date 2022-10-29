@@ -97,7 +97,7 @@ gltf_mesh_attribute_map s_meshAttributeMap[] =
 	"COLOR_2",		gltfMesh_Primitive_Attribute::Type::Color2,		4,
 	"COLOR_3",		gltfMesh_Primitive_Attribute::Type::Color3,		4,
 	"WEIGHTS_0",	gltfMesh_Primitive_Attribute::Type::Weight,		4,
-	"JOINTS_0",		gltfMesh_Primitive_Attribute::Type::Indices,	4,
+	"JOINTS_0",		gltfMesh_Primitive_Attribute::Type::Joints,		4,
 	"",				gltfMesh_Primitive_Attribute::Type::Count
 };
 
@@ -2073,7 +2073,21 @@ bool GLTF_Parser::Parse()
 		}
 	}
 
+	//parser should be at end.
+#if 0
+	// RB: this results into a random "Unknown punctuation" error sometimes
+	parser.ReadToken( &token );
+	if( parser.EndOfFile() )
+	{
+		common->Printf( "%s ^2loaded\n", currentFile.c_str() );
+	}
+	else
+	{
+		common->FatalError( "%s not fully loaded.", currentFile.c_str() );
+	}
+#else
 	common->Printf( "%s ^2loaded\n", currentFile.c_str() );
+#endif
 
 	buffersDone = false;
 	bufferViewsDone = false;

@@ -138,6 +138,7 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 
 				break;
 			}
+
 			case gltfMesh_Primitive_Attribute::Type::Normal:
 			{
 				idVec3 vec;
@@ -159,11 +160,16 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 					normal.z = vec.z;
 
 					normal *= transform;
+
+					// renormalize because previous transforms may contain scale operations
+					normal.Normalize();
+
 					mesh->verts[i].SetNormal( normal );
 				}
 
 				break;
 			}
+
 			case gltfMesh_Primitive_Attribute::Type::TexCoord0:
 			{
 				idVec2 vec;
@@ -182,6 +188,7 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 
 				break;
 			}
+
 			case gltfMesh_Primitive_Attribute::Type::Tangent:
 			{
 				idVec4 vec;
@@ -203,12 +210,14 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 					tangent.z = vec.z;
 
 					tangent *= transform;
+					tangent.Normalize();
 
 					mesh->verts[i].SetTangent( tangent );
 					mesh->verts[i].SetBiTangentSign( vec.w );
 				}
 				break;
 			}
+
 			case gltfMesh_Primitive_Attribute::Type::Weight:
 			{
 				idVec4 vec;
@@ -222,13 +231,90 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 					{
 						bin.Seek( attrBv->byteStride - ( attrib->elementSize * attrAcc->typeSize ), FS_SEEK_CUR );
 					}
-					
+
 					mesh->verts[i].SetColor2( PackColor( vec ) );
 
 				}
 				break;
 			}
-			case gltfMesh_Primitive_Attribute::Type::Indices:
+
+			case gltfMesh_Primitive_Attribute::Type::Color0:
+				//case gltfMesh_Primitive_Attribute::Type::Color1:
+				//case gltfMesh_Primitive_Attribute::Type::Color2:
+				//case gltfMesh_Primitive_Attribute::Type::Color3:
+			{
+				if( attrAcc->typeSize == 4 )
+				{
+					idVec4 vec;
+
+					assert( sizeof( vec ) == ( attrAcc->typeSize * 4 ) );
+
+					for( int i = 0; i < attrAcc->count; i++ )
+					{
+						bin.Read( ( void* )( &vec[0] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[1] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[2] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[3] ), attrAcc->typeSize );
+						if( attrBv->byteStride )
+						{
+							bin.Seek( attrBv->byteStride - ( attrib->elementSize * attrAcc->typeSize ), FS_SEEK_CUR );
+						}
+
+						mesh->verts[i].color[0] = idMath::Ftob( vec.x * 255.0f );
+						mesh->verts[i].color[1] = idMath::Ftob( vec.y * 255.0f );
+						mesh->verts[i].color[2] = idMath::Ftob( vec.z * 255.0f );
+						mesh->verts[i].color[3] = 255;
+					}
+				}
+				else if( attrAcc->typeSize == 2 )
+				{
+					uint16_t vec[4];
+
+					assert( sizeof( vec ) == ( attrAcc->typeSize * 4 ) );
+
+					for( int i = 0; i < attrAcc->count; i++ )
+					{
+						bin.Read( ( void* )( &vec[0] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[1] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[2] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[3] ), attrAcc->typeSize );
+						if( attrBv->byteStride )
+						{
+							bin.Seek( attrBv->byteStride - ( attrib->elementSize * attrAcc->typeSize ), FS_SEEK_CUR );
+						}
+
+						mesh->verts[i].color[0] = idMath::Ftob( ( vec[0] * 1.0f / 65335 ) * 255.0f );
+						mesh->verts[i].color[1] = idMath::Ftob( ( vec[1] * 1.0f / 65335 ) * 255.0f );
+						mesh->verts[i].color[2] = idMath::Ftob( ( vec[2] * 1.0f / 65335 ) * 255.0f );
+						mesh->verts[i].color[3] = 255;
+					}
+				}
+				else
+				{
+					uint8_t vec[4];
+					for( int i = 0; i < attrAcc->count; i++ )
+					{
+						assert( sizeof( vec ) == ( attrAcc->typeSize * 4 ) );
+
+						bin.Read( ( void* )( &vec[0] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[1] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[2] ), attrAcc->typeSize );
+						bin.Read( ( void* )( &vec[3] ), attrAcc->typeSize );
+						if( attrBv->byteStride )
+						{
+							bin.Seek( attrBv->byteStride - ( attrib->elementSize * attrAcc->typeSize ), FS_SEEK_CUR );
+						}
+
+						mesh->verts[i].color[0] = vec[0];
+						mesh->verts[i].color[1] = vec[1];
+						mesh->verts[i].color[2] = vec[2];
+						mesh->verts[i].color[3] = vec[3];
+					}
+				}
+				break;
+			}
+
+			case gltfMesh_Primitive_Attribute::Type::Joints:
 			{
 				if( attrAcc->typeSize == 2 )
 				{
@@ -276,7 +362,6 @@ MapPolygonMesh* MapPolygonMesh::ConvertFromMeshGltf( const gltfMesh_Primitive* p
 					}
 				}
 				break;
-
 			}
 		}
 
@@ -348,25 +433,28 @@ void ResolveLight( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 
 	assert( light );
 
-	newEntity->epairs.SetMatrix("rotation", mat3_default);
-	newEntity->epairs.SetVector("_color", light->color);
+	//newEntity->epairs.SetMatrix( "rotation", mat3_default );
+	newEntity->epairs.SetVector( "_color", light->color );
 
 	switch( gltfExt_KHR_lights_punctual::resolveType( light->type ) )
 	{
 		default:
-			common->Warning("Unsupported Light Type");
+			common->Warning( "Unsupported Light Type" );
 			break;
+
 		case gltfExt_KHR_lights_punctual::Directional:
 		{
-			common->Warning("KHR_lights_punctual::Directional not implemented");
+			common->Warning( "KHR_lights_punctual::Directional not implemented" );
 			break;
 		}
+
 		case gltfExt_KHR_lights_punctual::Point:
 		{
-			newEntity->epairs.SetVector("light_radius", idVec3(light->range) );
-			newEntity->epairs.Set("texture", "lights/defaultpointlight");
+			newEntity->epairs.SetVector( "light_radius", idVec3( light->range ) );
+			newEntity->epairs.Set( "texture", "lights/defaultpointlight" );
 			break;
 		}
+
 		case gltfExt_KHR_lights_punctual::Spot:
 		{
 			idMat4 entityToWorldTransform = mat4_identity;
@@ -384,6 +472,7 @@ void ResolveLight( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 			newEntity->epairs.Set( "texture", "lights/spot01" );
 			break;
 		}
+
 		case gltfExt_KHR_lights_punctual::count:
 			break;
 	}
@@ -394,22 +483,22 @@ void ResolveEntity( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 {
 	const char* classname = node->extras.strPairs.GetString( "classname" );
 
-	if (node->name.Length())
+	if( node->name.Length() )
 	{
 		idStr name;
 		idStrList names;
 		gltfNode* parent = node->parent;
-		while (parent)
+		while( parent )
 		{
 			names.Alloc() = parent->name;
 			parent = parent->parent;
 		}
 
-		for (int i = names.Num () ; i >= 1 ; i--)
+		for( int i = names.Num() ; i >= 1 ; i-- )
 		{
-			name += names[i-1] + ".";
+			name += names[i - 1] + ".";
 		}
-		newEntity->epairs.Set( "name", name+node->name );
+		newEntity->epairs.Set( "name", name + node->name );
 	}
 
 	// copy custom properties filled in Blender
@@ -419,7 +508,6 @@ void ResolveEntity( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 
 	// gather entity transform and bring it into id Tech 4 space
 	gltfData::ResolveNodeMatrix( node );
-
 
 	// set entity transform in a way the game and physics code understand it
 	idVec3 origin = blenderToDoomTransform * node->translation;
