@@ -106,15 +106,27 @@ function(compile_shaders)
         endif()
 
         if (NOT params_CFLAGS)
-            set(CFLAGS "$<IF:$<CONFIG:Debug>,-Zi,> -fspv-target-env=vulkan1.2 -O3 -WX -Zpr")
+			if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+				# SRS - MoltenVK currently supports vulkan 1.1 (1.2 coming in next SDK release)
+				set(CFLAGS "$<IF:$<CONFIG:Debug>,-Zi,> -fspv-target-env=vulkan1.1 -O3 -WX -Zpr")
+			else()
+				set(CFLAGS "$<IF:$<CONFIG:Debug>,-Zi,> -fspv-target-env=vulkan1.2 -O3 -WX -Zpr")
+			endif()
         else()
             set(CFLAGS ${params_CFLAGS})
+        endif()
+
+        # SRS - Parallel shader compilation sometimes fails, disable for now until issue is resolved
+        if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+            set(PARALLEL_SHADERS "")
+        else()
+            set(PARALLEL_SHADERS "--parallel")
         endif()
 
         add_custom_command(TARGET ${params_TARGET} PRE_BUILD
                           COMMAND shaderCompiler
                                    --infile ${params_CONFIG}
-                                   --parallel
+                                    ${PARALLEL_SHADERS}
                                    --out ${params_SPIRV_DXC}
                                    --platform spirv
                                    -I ${SHADER_INCLUDE_DIR}
