@@ -232,10 +232,12 @@ void idRenderModelGLTF::InitFromFile( const char* fileName, const idImportOption
 	hasAnimations = totalAnims > 0;
 	model_state = hasAnimations ? DM_CACHED : DM_STATIC;
 
-	//idMat4 globalTransform = blenderToDoomTransform;
+	//this should still be the default behavior. 
+	idMat4 globalTransform = blenderToDoomTransform;
 
 	if( options )
 	{
+
 		const auto blenderToDoomRotation = idAngles( 0.0f, 0.0f, 90 ).ToMat3();
 
 		float scale = options->scale;
@@ -541,6 +543,7 @@ static idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat
 		if( node->parent == nullptr )
 		{
 			node->matrix *= blenderToDoomTransform;
+			trans = node->matrix;
 		}
 
 		idJointQuat& pose = ret[i];
@@ -720,7 +723,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( const idStr& animName, const ID_TI
 	animBones.SetNum( numFrames );
 	for( int i = 0; i < numFrames; i++ )
 	{
-		int totalCopied = copyBones( data, bones, animBones[i] );
+		int totalCopied = CopyBones( data, bones, animBones[i] );
 		assert( totalCopied );
 	}
 

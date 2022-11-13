@@ -640,6 +640,11 @@ int idMapEntity::GetEntities( gltfData* data, EntityListRef entities, int sceneI
 
 					entityCount++;
 				}
+				// add entities from all subnodes
+				for (auto& child : node->children)
+				{
+					entityCount += FindEntities(data, entities, data->NodeList()[child]);
+				}
 			}
 		}
 	}
