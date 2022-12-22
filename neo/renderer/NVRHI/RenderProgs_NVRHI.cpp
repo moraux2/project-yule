@@ -36,7 +36,6 @@ If you have questions concerning this license or the applicable additional terms
 #include <sys/DeviceManager.h>
 
 
-
 /*
 ========================
 idRenderProgManager::StartFrame
@@ -308,12 +307,18 @@ void idRenderProgManager::ZeroUniforms()
 }
 
 // Only updates the constant buffer if it was updated at all
-void idRenderProgManager::CommitConstantBuffer( nvrhi::ICommandList* commandList )
+bool idRenderProgManager::CommitConstantBuffer( nvrhi::ICommandList* commandList, bool bindingLayoutTypeChanged )
 {
-	if( uniformsChanged )
+	// RB: It would be better to NUM_BINDING_LAYOUTS uniformsChanged entrys but we don't know the current binding layout type when we set the uniforms.
+	// The vkDoom3 backend even didn't bother with this and always fired the uniforms for each draw call.
+	if( uniformsChanged || bindingLayoutTypeChanged )
 	{
-		commandList->writeBuffer( constantBuffer, uniforms.Ptr(), uniforms.Allocated() );
+		commandList->writeBuffer( constantBuffer[BindingLayoutType()], uniforms.Ptr(), uniforms.Allocated() );
 
 		uniformsChanged = false;
+
+		return true;
 	}
+
+	return false;
 }

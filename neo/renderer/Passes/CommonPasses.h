@@ -78,7 +78,7 @@ protected:
 
 	struct PsoCacheKey
 	{
-		nvrhi::FramebufferInfo fbinfo;
+		nvrhi::FramebufferInfoEx fbinfo;
 		nvrhi::IShader* shader;
 		nvrhi::BlendState::RenderTarget blendState;
 
@@ -134,6 +134,7 @@ public:
 	CommonRenderPasses();
 
 	void	Init( nvrhi::IDevice* device );
+	void	Shutdown();
 
 	void	BlitTexture( nvrhi::ICommandList* commandList, const BlitParameters& params, BindingCache* bindingCache = nullptr );
 

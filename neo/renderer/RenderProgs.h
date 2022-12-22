@@ -448,11 +448,6 @@ public:
 #if defined( USE_NVRHI )
 	nvrhi::ShaderHandle GetShader( int index );
 
-	nvrhi::BufferHandle GetConstantBuffer()
-	{
-		return constantBuffer;
-	}
-
 	programInfo_t GetProgramInfo( int index );
 
 	int		CurrentProgram() const
@@ -1022,11 +1017,15 @@ public:
 	int			UniformSize();
 
 #if defined( USE_NVRHI )
-	void						CommitConstantBuffer( nvrhi::ICommandList* commandList );
+	bool									CommitConstantBuffer( nvrhi::ICommandList* commandList, bool bindingLayoutTypeChanged );
 
 	ID_INLINE nvrhi::IBuffer*				ConstantBuffer()
 	{
-		return constantBuffer;
+		return constantBuffer[BindingLayoutType()];
+	}
+	ID_INLINE idUniformBuffer&				BindingParamUbo()
+	{
+		return bindingParmUbo[ BindingLayoutType() ];
 	}
 	ID_INLINE nvrhi::InputLayoutHandle		InputLayout()
 	{
@@ -1040,6 +1039,10 @@ public:
 	{
 		return &bindingLayouts[layoutType];
 	}
+
+	idUniformBuffer									renderParmUbo;
+	idArray<idUniformBuffer, NUM_BINDING_LAYOUTS>	bindingParmUbo;
+	idArray<idVec4*, NUM_BINDING_LAYOUTS>			mappedRenderParms;
 #elif defined(USE_VULKAN)
 	void		PrintPipelines();
 	void		ClearPipelines();
@@ -1149,7 +1152,7 @@ private:
 
 	idStaticList< idStaticList<nvrhi::BindingLayoutHandle, nvrhi::c_MaxBindingLayouts>, NUM_BINDING_LAYOUTS > bindingLayouts;
 
-	nvrhi::BufferHandle	constantBuffer;
+	idArray<nvrhi::BufferHandle, NUM_BINDING_LAYOUTS>	constantBuffer;
 
 #elif defined(USE_VULKAN)
 	struct shader_t

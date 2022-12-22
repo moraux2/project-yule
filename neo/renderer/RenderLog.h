@@ -82,14 +82,15 @@ private:
 	uint64							frameCounter;
 	uint32							frameParity;
 
-	idStaticList<nvrhi::TimerQueryHandle, MRB_TOTAL_QUERIES> timerQueries;
-	idStaticList<bool, MRB_TOTAL_QUERIES> timerUsed;
+	idStaticList<nvrhi::TimerQueryHandle, MRB_TOTAL* NUM_FRAME_DATA> timerQueries;
+	idStaticList<bool, MRB_TOTAL* NUM_FRAME_DATA> timerUsed;
 #endif
 
 public:
 	idRenderLog();
 
 	void		Init();
+	void		Shutdown();
 
 	void		StartFrame( nvrhi::ICommandList* _commandList );
 	void		EndFrame();

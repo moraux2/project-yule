@@ -40,12 +40,12 @@ If you have questions concerning this license or the applicable additional terms
 #include "d3xp/Game_local.h"
 
 idCVar gltf_ForceBspMeshTexture( "gltf_ForceBspMeshTexture", "0", CVAR_SYSTEM | CVAR_BOOL, "all world geometry has the same forced texture" );
-idCVar gltf_ModelSceneName( "gltf_ModelSceneName", "models", CVAR_SYSTEM , "Scene to use when loading specific models" );
+idCVar gltf_ModelSceneName( "gltf_ModelSceneName", "Scene", CVAR_SYSTEM , "Scene to use when loading specific models" );
 
 idCVar gltf_AnimSampleRate( "gltf_AnimSampleRate", "24", CVAR_SYSTEM | CVAR_INTEGER , "The frame rate of the converted md5anim" );
 
 
-static const byte GLMB_VERSION = 101;
+static const byte GLMB_VERSION = 102;
 static const unsigned int GLMB_MAGIC = ( 'M' << 24 ) | ( 'L' << 16 ) | ( 'G' << 8 ) | GLMB_VERSION;
 static const char* GLTF_SnapshotName = "_GLTF_Snapshot_";
 static const idMat4 blenderToDoomTransform( idAngles( 0.0f, 0.0f, 90 ).ToMat3(), vec3_origin );
@@ -57,7 +57,7 @@ bool idRenderModelStatic::ConvertGltfMeshToModelsurfaces( const gltfMesh* mesh )
 	return false;
 }
 
-void idRenderModelGLTF::ProcessNode_r( gltfNode* modelNode, idMat4 parentTransform, gltfData* data )
+void idRenderModelGLTF::ProcessNode_r( gltfNode* modelNode, const idMat4& parentTransform, const idMat4& globalTransform, gltfData* data )
 {
 	auto& meshList = data->MeshList();
 	auto& nodeList = data->NodeList();
@@ -73,7 +73,7 @@ void idRenderModelGLTF::ProcessNode_r( gltfNode* modelNode, idMat4 parentTransfo
 		for( auto prim : targetMesh->primitives )
 		{
 			//ConvertFromMeshGltf should only be used for the map, ConvertGltfMeshToModelsurfaces should be used.
-			auto* mesh = MapPolygonMesh::ConvertFromMeshGltf( prim, data,  blenderToDoomTransform * nodeToWorldTransform );
+			auto* mesh = MapPolygonMesh::ConvertFromMeshGltf( prim, data, globalTransform * nodeToWorldTransform );
 			modelSurface_t	surf;
 
 			gltfMaterial* mat = NULL;
@@ -126,7 +126,184 @@ void idRenderModelGLTF::ProcessNode_r( gltfNode* modelNode, idMat4 parentTransfo
 
 	for( auto& child : modelNode->children )
 	{
-		ProcessNode_r( nodeList[child], nodeToWorldTransform, data );
+		ProcessNode_r( nodeList[child], nodeToWorldTransform, globalTransform, data );
+	}
+}
+static void KeepNodes( gltfData* data, const idStrList& keepList, idList<int, TAG_MODEL>& boneList )
+{
+	idStrList finalList;
+	idStr nodeName;
+	idList<int> nodesToKeep;
+
+	for( int i = 0 ; i < keepList.Num(); i++ )
+	{
+		bool parentWildcard = false;
+		bool childWildcard = false;
+		if( keepList[i] == "*" )
+		{
+			parentWildcard = true;
+			i++;
+		}
+		const idStr item = keepList[i];
+		gltfNode* node = data->GetNode( item );
+
+		if( node == nullptr )
+		{
+			continue;
+		}
+
+		int idx = data->GetNodeIndex( node );
+		if( boneList.Find( idx ) )
+		{
+			nodesToKeep.Insert( idx );
+		}
+
+		if( ( i < ( keepList.Num() - 1 ) ) &&  keepList[i + 1] == "*" )
+		{
+			childWildcard = true;
+			i++;
+		}
+
+		if( parentWildcard && node->parent )
+		{
+			gltfNode* parent = node->parent;
+			while( parent )
+			{
+				idx = data->GetNodeIndex( parent );
+				if( boneList.Find( idx ) )
+				{
+					nodesToKeep.Insert( idx );
+				}
+			}
+		}
+
+		if( childWildcard && node->children.Num() )
+		{
+			idList<int> tmpIdx;
+			tmpIdx.Append( node->children );
+			for( int j = 0; j < tmpIdx.Num(); j++ )
+			{
+				idx = tmpIdx[j];
+				if( boneList.Find( idx ) )
+				{
+					nodesToKeep.Insert( idx );
+					gltfNode* tmpNode = data->NodeList()[idx];
+					if( tmpNode )
+					{
+						for( int child : tmpNode->children )
+						{
+							tmpIdx.AddUnique( child );
+						}
+					}
+				}
+			}
+		}
+	}
+
+#if 0
+	common->SetRefreshOnPrint( true );
+	common->DPrintf( "=====\n" );
+	for( int nodeID : boneList )
+	{
+		if( nodesToKeep.Find( nodeID ) )
+		{
+			common->DPrintf( "^7[^2Kept^7]\t\t bone \'%s\'\n",
+							 data->NodeList()[nodeID]->name.c_str() );
+		}
+		else
+		{
+			common->DPrintf( "^7[^1Discard^7]\t bone \'%s\'\n ",
+							 data->NodeList()[nodeID]->name.c_str() );
+		}
+
+	}
+	common->DPrintf( "=====\n" );
+	common->SetRefreshOnPrint( false );
+#endif
+
+	boneList = nodesToKeep;
+}
+
+static gltfNode* GetBoneNode( gltfData* data, const idList<int, TAG_MODEL>& boneList, const idStr& name )
+{
+	auto& nodelist = data->NodeList();
+	for( int boneId : boneList )
+	{
+		gltfNode* boneNode = nodelist[boneId];
+		if( boneNode->name == name )
+		{
+			return boneNode;
+		}
+	}
+	return nullptr;
+}
+
+static void RemapNodes( gltfData* data, const idList<idNamePair>& remapList, const idList<int, TAG_MODEL>& boneList )
+{
+	//we need to be _very_ careful with modifying the GLTF data since it is not saved or cached!!!
+	auto& nodeList = data->NodeList();
+	for( const auto& remap : remapList )
+	{
+		gltfNode* from = GetBoneNode( data, boneList, remap.from );
+		gltfNode* to = GetBoneNode( data, boneList, remap.to );
+		if( !from || !to )
+		{
+			common->Error( "Invalid remap name pair \'%s\'[\"%s\"] : \'%s\'[\"%s\"]",
+						   remap.from.c_str(), from ? from->name.c_str() : "Not Found",
+						   remap.to.c_str(), to ? to->name.c_str() : "Not Found" );
+		}
+
+		common->Warning( "Remapping.. setting \'%s\' as parent of \'%s\' ",
+						 remap.to.c_str(), remap.from.c_str() );
+
+
+		from->parent = to;
+		to->children.Alloc() = data->GetNodeIndex( from );
+	}
+}
+
+static int AddOriginBone( gltfData* data, idList<int, TAG_MODEL>& bones, gltfNode* root )
+{
+	//we need to be _very_ careful with modifying the GLTF data since it is not saved or cached!!!
+	auto& nodeList = data->NodeList();
+	gltfNode* newNode = data->Node();
+	int newIdx = nodeList.Num() - 1;
+	bones.Insert( newIdx );
+	newNode->name = "origin";
+
+
+	//patch children
+	for( int childId : root->children )
+	{
+		newNode->children.Alloc() = childId;
+		gltfNode* childNode = nodeList[childId];
+		childNode->parent = newNode;
+	}
+
+	root->children.Clear();
+	root->children.Alloc() = nodeList.Num() - 1;
+	newNode->parent = root;
+	common->Warning( "Added origin bone!" );
+	return newIdx;
+}
+
+static void RenameNodes( gltfData* data, const idList<idNamePair>& renameList, const idList<int, TAG_MODEL>& boneList )
+{
+	//we need to be _very_ careful with modifying the GLTF data since it is not saved or cached!!!
+	auto& nodeList = data->NodeList();
+	for( const auto& rename : renameList )
+	{
+		gltfNode* from = GetBoneNode( data, boneList, rename.from );
+		if( !from )
+		{
+			common->Error( "Invalid rename name pair from \'%s\'[\"%s\"] ",
+						   rename.from.c_str(), from ? from->name.c_str() : "Not Found" );
+		}
+
+		common->Warning( "Renaming.. \'%s\' to \'%s\' ",
+						 rename.from.c_str(), rename.to.c_str() );
+
+		from->name = rename.to;
 	}
 }
 
@@ -135,7 +312,7 @@ void idRenderModelGLTF::ProcessNode_r( gltfNode* modelNode, idMat4 parentTransfo
 // warning : nodeName cannot have dots!
 //[fileName].[nodeName/nodeId].[gltf/glb]
 //If no nodeName/nodeId is given, all primitives active in default scene will be added as surfaces.
-void idRenderModelGLTF::InitFromFile( const char* fileName )
+void idRenderModelGLTF::InitFromFile( const char* fileName, const idImportOptions* options )
 {
 	hasAnimations = false;
 	fileExclusive = false;
@@ -144,13 +321,28 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 	int meshID = -1;
 	name = fileName;
 	currentSkin = nullptr;
+	idImportOptions* localOptions = nullptr;
 
 	PurgeModel();
 
 	//FIXME FIXME FIXME
 	maxJointVertDist = 10;
-	idStr gltfFileName = idStr( fileName );
+	gltfFileName = idStr( fileName );
 	model_state = DM_STATIC;
+
+	if( options )
+	{
+		commandLine = options->commandLine;
+		localOptions = const_cast<idImportOptions*>( options );
+	}
+	else
+	{
+		if( !commandLine.IsEmpty() )
+		{
+			localOptions = new idImportOptions();
+			localOptions->Init( commandLine, fileName );
+		}
+	}
 
 	gltfManager::ExtractIdentifier( gltfFileName, meshID, meshName );
 	GLTF_Parser gltf;
@@ -171,13 +363,17 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 	assert( nodes.Num() );
 
 	//determine root node
-	if( !meshName[0] )
+	if( !meshName[0] && data->MeshList().Num() )
 	{
-		root = new gltfNode();
-		root->name = scene->name;
-		root->children.Append( scene->nodes );
-		rootID = -1;
+		gltfMesh* firstMesh = data->MeshList()[0];
+
 		fileExclusive = true;
+		root = data->GetNode( scene, firstMesh, &rootID );
+		if( root )
+		{
+			rootID = data->GetNodeIndex( root );
+			meshName = root->name;
+		}
 	}
 	else
 	{
@@ -192,6 +388,12 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 	{
 		common->Warning( "Couldn't find model: '%s'", name.c_str() );
 		MakeDefaultModel();
+
+		if( localOptions && !options )
+		{
+			delete localOptions;
+		}
+
 		return;
 	}
 
@@ -218,9 +420,33 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 				bones.Append( currentSkin->joints );
 				animCount = data->GetAnimationIds( nodes[bones[0]] , animIds );
 			}
+
+			if( localOptions )
+			{
+				if( localOptions->keepjoints.Num() )
+				{
+					KeepNodes( data, localOptions->keepjoints, bones );
+				}
+
+				if( localOptions->addOrigin )
+				{
+					AddOriginBone( data, bones, nodes[bones[0]]->parent );
+				}
+
+				if( localOptions->remapjoints.Num() )
+				{
+					RemapNodes( data, localOptions->remapjoints, bones );
+				}
+
+				if( localOptions->renamejoints.Num() )
+				{
+					RenameNodes( data, localOptions->renamejoints, bones );
+				}
+			}
 		}
 		else
 		{
+			//Boneless TRS animation.
 			animCount = data->GetAnimationIds( tmpNode , animIds );
 			bones.Append( meshID );
 		}
@@ -230,17 +456,56 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 
 	hasAnimations = totalAnims > 0;
 	model_state = hasAnimations ? DM_CACHED : DM_STATIC;
+	globalTransform = blenderToDoomTransform;
 
-	ProcessNode_r( root, mat4_identity, data );
+	if( localOptions )
+	{
+		const auto blenderToDoomRotation = idAngles( 0.0f, 0.0f, 90 ).ToMat3();
+		idMat3 reOrientationMat = blenderToDoomRotation;
+
+		if( localOptions->reOrient != ang_zero )
+		{
+			reOrientationMat = localOptions->reOrient.ToMat3();
+		}
+
+		float scale = localOptions->scale;
+		idMat3 scaleMat( scale, 0, 0, 0, scale, 0, 0, 0, scale );
+
+		globalTransform = idMat4( reOrientationMat * scaleMat, vec3_origin );
+	}
+
+	ProcessNode_r( root, mat4_identity, globalTransform, data );
 
 	if( surfaces.Num() <= 0 )
 	{
 		common->Warning( "Couldn't load model: '%s'", name.c_str() );
 		MakeDefaultModel();
+		data = nullptr;
+		if( localOptions && !options )
+		{
+			delete localOptions;
+		}
 		return;
 	}
 
-
+	if( options )
+	{
+		if( options->addOrigin )
+		{
+			//patch bone indices; all indices are offset with 1 after adding a bone
+			for( auto& surf : surfaces )
+			{
+				for( int i = 0; i < surf.geometry->numVerts; i++ )
+				{
+					idDrawVert& base = surf.geometry->verts[i];
+					base.color[0] += 1;
+					base.color[1] += 1;
+					base.color[2] += 1;
+					base.color[3] += 1;
+				}
+			}
+		}
+	}
 	// derive mikktspace tangents from normals
 	FinishSurfaces( true );
 
@@ -249,6 +514,10 @@ void idRenderModelGLTF::InitFromFile( const char* fileName )
 
 	// it is now available for use
 	lastMeshFromFile = this;
+	if( localOptions && !options )
+	{
+		delete localOptions;
+	}
 }
 
 bool idRenderModelGLTF::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTimeStamp )
@@ -259,6 +528,7 @@ bool idRenderModelGLTF::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTim
 
 	if( !idRenderModelStatic::LoadBinaryModel( file, sourceTimeStamp ) )
 	{
+		data = nullptr;
 		return false;
 	}
 
@@ -267,9 +537,11 @@ bool idRenderModelGLTF::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTim
 
 	if( magic != GLMB_MAGIC )
 	{
+		data = nullptr;
 		return false;
 	}
 
+	file->ReadString( commandLine );
 	file->ReadBig( model_state );
 	file->ReadBig( rootID );
 
@@ -343,6 +615,7 @@ bool idRenderModelGLTF::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTim
 	model_state = hasAnimations ? DM_CONTINUOUS : DM_STATIC;
 
 	lastMeshFromFile = this;
+	data = nullptr;
 	return true;
 }
 
@@ -366,6 +639,7 @@ void idRenderModelGLTF::UpdateMd5Joints()
 	md5joints.Resize( bones.Num() );
 	md5joints.SetNum( bones.Num() );
 	idStr ovrBoneName;
+	int	overrideIdx = -1;
 	auto& nodeList = data->NodeList();
 
 	for( int i = 0 ; i < bones.Num(); i++ )
@@ -377,11 +651,8 @@ void idRenderModelGLTF::UpdateMd5Joints()
 		{
 			if( node->mesh == -1 )
 			{
-				common->Warning( "First bone of model is not named \"origin\", name forced!" );
+				common->Warning( "First bone of model \'%s\' is not named \"origin\"!", name.c_str() );
 			}
-
-			ovrBoneName = node->name;
-			md5joints[i].name = "origin";
 		}
 		else
 		{
@@ -392,16 +663,9 @@ void idRenderModelGLTF::UpdateMd5Joints()
 	for( int i = 0 ; i < bones.Num(); i++ )
 	{
 		gltfNode* node = nodeList[bones[i]];
-		if( i && node->parent && node->parent != root )
+		if( i && node->parent && node->parent != root && ( currentSkin && ( node->parent->name != currentSkin->name ) ) )
 		{
-			if( node->parent->name == ovrBoneName )
-			{
-				md5joints[i].parent = FindMD5Joint( idStr( "origin" ) );
-			}
-			else
-			{
-				md5joints[i].parent = FindMD5Joint( node->parent->name );
-			}
+			md5joints[i].parent = FindMD5Joint( node->parent->name );
 		}
 	}
 
@@ -467,7 +731,7 @@ void idRenderModelGLTF::DrawJoints( const struct renderEntity_s* ent, const view
 	}
 }
 
-bool gatherBoneInfo( gltfData* data, gltfAnimation* gltfAnim, const idList<gltfNode*>& nodes , idList<int, TAG_MODEL>& bones, idList<jointAnimInfo_t, TAG_MD5_ANIM>& jointInfo )
+static bool GatherBoneInfo( gltfData* data, gltfAnimation* gltfAnim, const idList<gltfNode*>& nodes , idList<int, TAG_MODEL>& bones, idList<jointAnimInfo_t, TAG_MD5_ANIM>& jointInfo , const idImportOptions* options )
 {
 	//Gather Bones;
 	bool boneLess = false;
@@ -475,7 +739,7 @@ bool gatherBoneInfo( gltfData* data, gltfAnimation* gltfAnim, const idList<gltfN
 
 	auto skin = data->GetSkin( gltfAnim );
 	auto targets = data->GetAnimTargets( gltfAnim );
-
+	auto& nodeList = data->NodeList();
 	if( skin == nullptr )
 	{
 		boneLess = true;
@@ -496,19 +760,45 @@ bool gatherBoneInfo( gltfData* data, gltfAnimation* gltfAnim, const idList<gltfN
 		bones.Append( targetNode );
 	}
 
+	if( options )
+	{
+		if( options->keepjoints.Num() )
+		{
+			KeepNodes( data, options->keepjoints, bones );
+		}
+
+		if( options->addOrigin )
+		{
+			AddOriginBone( data, bones, data->NodeList()[bones[0]]->parent );
+		}
+
+		if( options->remapjoints.Num() )
+		{
+			RemapNodes( data, options->remapjoints, bones );
+		}
+
+		if( options->renamejoints.Num() )
+		{
+			RenameNodes( data, options->renamejoints, bones );
+		}
+
+	}
+
 	//create jointInfo
 	jointInfo.SetGranularity( 1 );
 	jointInfo.SetNum( bones.Num() );
+	int idx = 0;
 	for( auto& joint : jointInfo )
 	{
 		joint.animBits = 0;
 		joint.firstComponent = -1;
+		joint.nameIndex = animationLib.JointIndex( nodeList[bones[idx++]]->name );
 	}
 
 	return boneLess;
 }
 
-idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat )
+static idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat, const idMat4& globalTransform )
 {
 	idList<idJointQuat> ret;
 	ret.AssureSize( bones.Num() );
@@ -522,7 +812,7 @@ idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat )
 
 		if( node->parent == nullptr )
 		{
-			node->matrix *= blenderToDoomTransform;
+			node->matrix *= globalTransform;
 			trans = node->matrix;
 		}
 
@@ -549,7 +839,7 @@ idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat )
 	return ret;
 }
 
-int copyBones( gltfData* data, const idList<int>& bones, idList<gltfNode>& out )
+static int CopyBones( gltfData* data, const idList<int>& bones, idList<gltfNode>& out )
 {
 	out.Clear();
 
@@ -584,13 +874,18 @@ int copyBones( gltfData* data, const idList<int>& bones, idList<gltfNode>& out )
 	return out.Num();
 }
 
-idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T sourceTimeStamp )
+idFile_Memory* idRenderModelGLTF::GetAnimBin( const idStr& animName, const ID_TIME_T sourceTimeStamp, const idImportOptions* options )
 {
 	assert( lastMeshFromFile );
-	///keep in sync with game!
+
+	//keep in sync with game!
 	static const byte B_ANIM_MD5_VERSION = 101;
 	static const unsigned int B_ANIM_MD5_MAGIC = ( 'B' << 24 ) | ( 'M' << 16 ) | ( 'D' << 8 ) | B_ANIM_MD5_VERSION;
+
+	// convert animName to original glTF2 filename and load it
 	GLTF_Parser gltf;
+	int rootMotionCopyTargetId = -1;
+
 	int id;
 	idStr gltfFileName = idStr( animName );
 	idStr name;
@@ -600,25 +895,73 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 	gltfData* data = gltf.currentAsset;
 	auto& accessors = data->AccessorList();
 	auto& nodes = data->NodeList();
+	int rootID = -1;
 
-	gltfNode* nodeRoot = nodes[lastMeshFromFile->rootID];
-	int boneRootNode = lastMeshFromFile->rootID;
-	if( nodeRoot->skin > -1 )
+	idStr lastGltfFileName = idStr( lastMeshFromFile->name );
+	idStr lastName;
+	gltfManager::ExtractIdentifier( lastGltfFileName, id, lastName );
+
+	if( options != nullptr && !options->armature.IsEmpty() )
 	{
-		boneRootNode = nodes[data->SkinList()[nodeRoot->skin]->skeleton]->children[0];
+		gameLocal.Printf( "Looking for armature %s\n", options->armature.c_str() );
+		gltfSkin* skin = data->GetSkin( options->armature );
+		if( skin && ( skin->skeleton > -1 && skin->skeleton < nodes.Num() ) )
+		{
+			rootID = nodes[skin->skeleton]->children[0];
+		}
+
+	}
+	else if( lastMeshFromFile == nullptr || lastGltfFileName != gltfFileName )
+	{
+		//treat the gltf file as one that only has 1 scene and 1 model, aka a fileExclusive model and
+		//try to use node from first model in first scene in gltf file
+		common->Warning( "Loading %s as if it was a gltf with only 1 mesh, 1 scene and 1 armature", gltfFileName.c_str() );
+		if( data->MeshList().Num() < 1 || data->SceneList().Num() < 1 )
+		{
+			common->Warning( "Could not determine root" );
+			return nullptr;
+		}
+		gltfMesh* firstMesh = data->MeshList()[0];
+		gltfScene* scenePtr = data->SceneList()[0];
+
+		gltfNode* root = data->GetNode( scenePtr, firstMesh, &rootID );
+		if( root )
+		{
+			rootID = data->GetNodeIndex( root );
+		}
+	}
+	else
+	{
+		rootID = lastMeshFromFile->rootID;
+		gltfNode* nodeRoot = nullptr;
+
+		if( rootID != -1 )
+		{
+			nodeRoot = nodes[rootID];
+		}
+
+		if( nodeRoot != nullptr && nodeRoot->skin > -1 )
+		{
+			rootID = nodes[data->SkinList()[nodeRoot->skin]->skeleton]->children[0];
+		}
 	}
 
-	auto gltfAnim = data->GetAnimation( name, boneRootNode );
+	if( rootID == -1 )
+	{
+		common->Warning( "Could not determine root" );
+		return nullptr;
+	}
+	auto gltfAnim = data->GetAnimation( name, rootID );
 	if( !gltfAnim )
 	{
+		common->Warning( "Could not find action %s in %s !", name.c_str(), gltfFileName.c_str() );
 		return nullptr;
 	}
 
 	idList<int, TAG_MODEL>					bones;
 	idList<jointAnimInfo_t, TAG_MD5_ANIM>	jointInfo;
 
-
-	bool boneLess = gatherBoneInfo( data, gltfAnim, nodes, bones, jointInfo );
+	bool boneLess = GatherBoneInfo( data, gltfAnim, nodes, bones, jointInfo, options );
 
 	idList<idList<gltfNode>>				animBones;
 	idList<float, TAG_MD5_ANIM>				componentFrames;
@@ -631,6 +974,34 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 	int										numAnimatedComponents = 0;
 
 	gameLocal.Printf( "Generating MD5Anim for GLTF anim %s from scene %s\n", name.c_str(), gltf_ModelSceneName.GetString() );
+
+	idMat4 globalTransform = blenderToDoomTransform;
+
+	if( options )
+	{
+		if( !options->transferRootMotion.IsEmpty() )
+		{
+			gltfNode* target = data->GetNode( options->transferRootMotion );
+			if( !target )
+			{
+				common->Warning( "Target bone to copy root motion from is not found" );
+			}
+
+			rootMotionCopyTargetId = data->GetNodeIndex( target );
+		}
+		const auto blenderToDoomRotation = idAngles( 0.0f, 0.0f, 90 ).ToMat3();
+		idMat3 reOrientationMat = blenderToDoomRotation;
+
+		if( options->reOrient != ang_zero )
+		{
+			reOrientationMat = options->reOrient.ToMat3();
+		}
+
+		float scale = options->scale;
+		idMat3 scaleMat( scale, 0, 0, 0, scale, 0, 0, 0, scale );
+
+		globalTransform = idMat4( reOrientationMat * scaleMat, vec3_origin );
+	}
 
 	gltfNode* root = nullptr;
 	int channelCount = 0;
@@ -666,6 +1037,8 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 		newJoint->nameIndex = animationLib.JointIndex( boneLess ? "origin" : target->name );
 		newJoint->parentNum = bones.FindIndex( parentIndex );
 
+		//assert( newJoint->parentNum >= 0 );
+
 		if( newJoint->firstComponent == -1 )
 		{
 			newJoint->firstComponent = numAnimatedComponents;
@@ -675,27 +1048,44 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 		{
 			default:
 				break;
+
 			case gltfAnimation_Channel_Target::none:
 				break;
+
 			case gltfAnimation_Channel_Target::rotation:
 				newJoint->animBits |= ANIM_QX | ANIM_QY | ANIM_QZ;
 				numAnimatedComponents += 3;
 				break;
+
 			case gltfAnimation_Channel_Target::translation:
 				newJoint->animBits |= ANIM_TX | ANIM_TY | ANIM_TZ;
 				numAnimatedComponents += 3;
 				break;
+
 			case gltfAnimation_Channel_Target::scale: // this is not supported by engine, but it should be for gltf
 				break;
 		}
 
 		channelCount++;
 	}
+
+	if( options && !options->transferRootMotion.IsEmpty() )
+	{
+		jointAnimInfo_t* newJoint = &( jointInfo[0] );
+		newJoint->animBits = ANIM_TX | ANIM_TY | ANIM_TZ;
+		numAnimatedComponents += 3;
+		newJoint->firstComponent = -3;
+		for( auto& joint : jointInfo )
+		{
+			joint.firstComponent += 3;
+		}
+	}
+
 	animBones.AssureSize( numFrames );
 	animBones.SetNum( numFrames );
 	for( int i = 0; i < numFrames; i++ )
 	{
-		int totalCopied = copyBones( data, bones, animBones[i] );
+		int totalCopied = CopyBones( data, bones, animBones[i] );
 		assert( totalCopied );
 	}
 
@@ -722,7 +1112,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 	baseFrame.SetNum( bones.Num() );
 
 	idJointMat* poseMat = ( idJointMat* ) _alloca16( bones.Num() * sizeof( poseMat[0] ) );
-	baseFrame = GetPose( animBones[0], poseMat );
+	baseFrame = GetPose( animBones[0], poseMat, globalTransform );
 
 	componentFrames.SetGranularity( 1 );
 	componentFrames.SetNum( ( ( numAnimatedComponents * numFrames ) ) + 1 );
@@ -748,8 +1138,10 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 			{
 				default:
 					break;
+
 				case gltfAnimation_Channel_Target::none:
 					break;
+
 				case gltfAnimation_Channel_Target::rotation:
 				{
 					idList<idQuat*>& values = data->GetAccessorView<idQuat>( output );
@@ -757,26 +1149,40 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 					{
 						animBones[i][boneIndex].rotation = *values[i];
 					}
+					break;
 				}
-				break;
+
 				case gltfAnimation_Channel_Target::translation:
 				{
 					idList<idVec3*>& values = data->GetAccessorView<idVec3>( output );
 					if( values.Num() > i )
 					{
-						animBones[i][boneIndex].translation = *values[i];
+						if( channel->target.node == rootMotionCopyTargetId )
+						{
+							animBones[i][boneIndex].translation.y = values[i]->y;
+							animBones[i][0].translation = *values[i];
+							animBones[i][0].translation.y = 0;
+						}
+						else
+						{
+							animBones[i][boneIndex].translation = *values[i];
+						}
 					}
+					break;
 				}
-				break;
+
 				case gltfAnimation_Channel_Target::scale:
+				{
 					idList<idVec3*>& values = data->GetAccessorView<idVec3>( output );
 					if( values.Num() > i )
 					{
 						animBones[i][boneIndex].scale = *values[i] ;
 					}
 					break;
+				}
 			}
 		}
+
 		for( int b = 0; b < bones.Num(); b++ )
 		{
 			auto* node = &animBones[i][b];
@@ -789,7 +1195,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 			{
 				if( node->parent == nullptr )
 				{
-					t = blenderToDoomTransform * t;
+					t = globalTransform * t;
 				}
 
 				componentFrames[componentFrameIndex++] = t.x;
@@ -801,7 +1207,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 			{
 				if( node->parent == nullptr )
 				{
-					q = blenderToDoomTransform.ToMat3().ToQuat() * animBones[i][b].rotation;
+					q = globalTransform.ToMat3().ToQuat() * animBones[i][b].rotation;
 				}
 				else
 				{
@@ -831,12 +1237,12 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 		{
 			if( animBones[i][b].parent == nullptr )
 			{
-				animBones[i][b].translation = blenderToDoomTransform * animBones[i][b].translation;
+				animBones[i][b].translation = globalTransform * animBones[i][b].translation;
 			}
 		}
 
 		idList<idJointMat> joints;
-		GetPose( animBones[i], currJoints );
+		GetPose( animBones[i], currJoints, globalTransform );
 		for( int b = 0; b < animBones[i].Num(); b++ )
 		{
 			idJointMat mat = poseMat[b];
@@ -893,9 +1299,6 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 	file->WriteBig( numJoints );
 	file->WriteBig( numAnimatedComponents );
 
-
-
-
 	file->WriteBig( bounds.Num() );
 	for( int i = 0; i < bounds.Num(); i++ )
 	{
@@ -945,7 +1348,11 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 	}
 	else
 	{
-		componentPtr = &componentFrames[jointInfo[0].firstComponent];
+		if( jointInfo[0].animBits )
+		{
+			componentPtr = &componentFrames[jointInfo[0].firstComponent];
+		}
+		//of there is root movement on a different bone , for example when adding a root bone, this wil fail.
 		if( jointInfo[0].animBits & ANIM_TX )
 		{
 			for( int i = 0; i < numFrames; i++ )
@@ -994,7 +1401,7 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( idStr animName ,  const ID_TIME_T 
 
 void idRenderModelGLTF::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp /*= NULL */ ) const
 {
-	idRenderModelStatic::WriteBinaryModel( file );
+	idRenderModelStatic::WriteBinaryModel( file , _timeStamp );
 
 	if( file == NULL )
 	{
@@ -1002,6 +1409,7 @@ void idRenderModelGLTF::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp /*
 	}
 
 	file->WriteBig( GLMB_MAGIC );
+	file->WriteString( commandLine );
 	file->WriteBig( model_state );
 	file->WriteBig( rootID );
 	file->WriteString( file->GetName() );
@@ -1049,6 +1457,7 @@ void idRenderModelGLTF::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp /*
 
 void idRenderModelGLTF::PurgeModel()
 {
+	idRenderModelStatic::PurgeModel();
 	purged = true;
 	md5joints.Clear();
 	defaultPose.Clear();
@@ -1057,12 +1466,15 @@ void idRenderModelGLTF::PurgeModel()
 	animIds.Clear();
 	bones.Clear();
 	MeshNodeIds.Clear();
+	gltfFileName.Clear();
+	meshName.Clear();
 
 	//if no root id was set, it is a generated one.
 	if( rootID == -1 && root )
 	{
 		delete root;
 	}
+	data = nullptr;
 }
 
 void idRenderModelGLTF::LoadModel()
@@ -1112,7 +1524,8 @@ void idRenderModelGLTF::LoadModel()
 		//check for TRS anim and its artficial root bone
 		if( bones.Num() == 0 && node->mesh != -1 )
 		{
-			md5joints[i].name = "origin";
+			assert( 0 );
+			//md5joints[i].name = "origin";
 		}
 		else
 		{
@@ -1124,7 +1537,7 @@ void idRenderModelGLTF::LoadModel()
 	{
 		auto* node = nodes[bones[i]];
 
-		if( i && node->parent && node->parent != root )
+		if( i && node->parent && node->parent != root && ( currentSkin && ( node->parent->name != currentSkin->name ) ) )
 		{
 			md5joints[i].parent = FindMD5Joint( node->parent->name );
 		}
@@ -1132,8 +1545,8 @@ void idRenderModelGLTF::LoadModel()
 
 	idJointMat* poseMat = ( idJointMat* ) _alloca16( bones.Num() * sizeof( poseMat[0] ) );
 	idList<gltfNode> animBones;
-	int totalCopied = copyBones( data, bones, animBones );
-	defaultPose = GetPose( animBones, poseMat );
+	int totalCopied = CopyBones( data, bones, animBones );
+	defaultPose = GetPose( animBones, poseMat, globalTransform );
 
 	if( !currentSkin )
 	{
@@ -1462,9 +1875,6 @@ idRenderModel* idRenderModelGLTF::InstantiateDynamicModel( const struct renderEn
 	if( purged )
 	{
 		common->DWarning( "model %s instantiated while purged", Name() );
-		GLTF_Parser gltf;
-		gltf.Load( name );
-		data = gltf.currentAsset;
 		LoadModel();
 	}
 

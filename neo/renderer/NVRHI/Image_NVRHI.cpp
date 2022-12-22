@@ -286,7 +286,15 @@ void idImage::AllocImage()
 			break;
 
 		case FMT_DEPTH_STENCIL:
-			format = nvrhi::Format::D24S8;
+			// SRS - Check if D24S8 is supported, otherwise fall back to D32S8
+			if( deviceManager->deviceParms.enableImageFormatD24S8 )
+			{
+				format = nvrhi::Format::D24S8;
+			}
+			else
+			{
+				format = nvrhi::Format::D32S8;
+			}
 			break;
 
 		case FMT_SHADOW_ARRAY:
@@ -363,7 +371,7 @@ void idImage::AllocImage()
 	uint maxTextureSize = 0;
 
 	if( maxTextureSize > 0 &&
-			int( std::max( originalWidth, originalHeight ) ) > maxTextureSize &&
+			int( Max( originalWidth, originalHeight ) ) > maxTextureSize &&
 			opts.isRenderTarget &&
 			opts.textureType == TT_2D )
 	{

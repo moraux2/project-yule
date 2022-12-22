@@ -129,10 +129,12 @@ bool BasicTriangle::Init()
 	CommonRenderPasses commonPasses;
 	commonPasses.Init( GetDevice() );
 
+	idUniformBuffer& ubo = renderProgManager.BindingParamUbo();
+
 	nvrhi::BindingSetDesc bindingSetDesc;
 	bindingSetDesc.bindings =
 	{
-		nvrhi::BindingSetItem::ConstantBuffer( 0, renderProgManager.ConstantBuffer() ),
+		nvrhi::BindingSetItem::ConstantBuffer( 0, ubo.GetAPIObject(), nvrhi::BufferRange( ubo.GetOffset(), ubo.GetSize() ) ),
 		nvrhi::BindingSetItem::Texture_SRV( 0, texture ),
 		nvrhi::BindingSetItem::Sampler( 0, commonPasses.m_AnisotropicWrapSampler )
 	};
@@ -287,7 +289,7 @@ void BasicTriangle::Render( nvrhi::IFramebuffer* framebuffer )
 		renderProgManager.SetRenderParm( renderParm_t::RENDERPARM_PROJMATRIX_W, &projMat[12] );
 	}
 
-	renderProgManager.CommitConstantBuffer( commandList );
+	renderProgManager.CommitConstantBuffer( commandList, true );
 
 	idVertexBuffer* vertexBuffer;
 	uint vertOffset = 0;

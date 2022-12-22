@@ -457,13 +457,15 @@ void ResolveLight( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 
 		case gltfExt_KHR_lights_punctual::Spot:
 		{
+			// RB: this code is based on Cmd_TestLight_f which sets the light properties in world space
 			idMat4 entityToWorldTransform = mat4_identity;
 			gltfData::ResolveNodeMatrix( node, &entityToWorldTransform );
-			idMat4 worldToEntityTransform = entityToWorldTransform.Inverse();
-
 			float fov = tan( light->spot.outerConeAngle ) / 2 ;
-			idMat3 axis = idAngles( 0.0f, 90.0f, 90.0f ).ToMat3() * entityToWorldTransform.ToMat3();
 
+			// HarrievG: TODO cleanup this was done by try & error until it worked
+			idQuat q = ( entityToWorldTransform ).ToMat3().ToQuat();
+			q = idAngles( 90.0f, 0.0, -90.0f ).ToQuat() * q * idAngles( 180.0f, 180.0f, -90.0f ).ToQuat();
+			idMat3 axis = q.ToMat3();
 			newEntity->epairs.SetVector( "light_target", axis[0] );
 			newEntity->epairs.SetVector( "light_right", axis[1] * -fov );
 			newEntity->epairs.SetVector( "light_up", axis[2] * fov );
@@ -507,10 +509,13 @@ void ResolveEntity( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 	newEntity->epairs = newPairs;
 
 	// gather entity transform and bring it into id Tech 4 space
-	gltfData::ResolveNodeMatrix( node );
+	idMat4 entityToWorldTransform = mat4_identity;
+	gltfData::ResolveNodeMatrix( node, &entityToWorldTransform );
 
 	// set entity transform in a way the game and physics code understand it
 	idVec3 origin = blenderToDoomTransform * node->translation;
+	// RB: should be idVec3 origin = ( blenderToDoomTransform * entityToWorldTransform ).GetTranslation();
+
 	newEntity->epairs.SetVector( "origin", origin );
 
 	if( node->extensions.KHR_lights_punctual != nullptr )
@@ -518,12 +523,32 @@ void ResolveEntity( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 		ResolveLight( data, newEntity, node );
 	}
 
-	// TODO set rotation key to store rotation and scaling
-	//if (idStr::Icmp(classname, "info_player_start") == 0)
-	//	if( !node->matrix.IsIdentity() )
-	//{
-	//	newEntity->epairs.SetMatrix("rotation", axis );
-	//}
+	// HarrievG: TODO cleanup this was done by try & error until it worked
+	if( node->camera >= 0 && !newEntity->epairs.FindKey( "rotation" ) )
+	{
+		idQuat q = entityToWorldTransform.ToMat3().ToQuat();
+		q = idAngles( 90.0f, 0.0, -90.0f ).ToQuat() * q * blenderToDoomTransform.ToMat3().ToQuat();
+		newEntity->epairs.SetMatrix( "rotation", q.ToMat3() );
+	}
+	else if( idStr::Icmp( classname, "info_player_start" ) == 0 && !newEntity->epairs.FindKey( "rotation" ) )
+	{
+		idQuat q = entityToWorldTransform.ToMat3().ToQuat();
+		q = idAngles( -90.0f, 0.0, -90.0f ).ToQuat() * q * blenderToDoomTransform.ToMat3().ToQuat();
+		newEntity->epairs.SetMatrix( "rotation",  q.ToMat3() );
+	}
+	else if( node->extras.strPairs.GetBool( "useNodeOrientation", false ) )
+	{
+		//Nodes that are an instance of an collection containing a mesh that is not inline, ea; a gltfModel; static _or_ dynamic,
+		//which has its transformations applied on vertex level so we do not apply it here.
+		origin = blenderToDoomTransform * ( node->translation * ( entityToWorldTransform * node->matrix.Inverse() ) );
+		newEntity->epairs.SetVector( "origin", origin );
+
+		idQuat q = ( entityToWorldTransform * node->matrix.Inverse() ).ToMat3().ToQuat();
+		q = blenderToDoomTransform.Inverse().ToMat3().ToQuat() * q * blenderToDoomTransform.ToMat3().ToQuat();
+		idMat3 rot = q.ToMat3();
+		//idMat3 rot = ( blenderToDoomTransform * entityToWorldTransform ).ToMat3();
+		newEntity->epairs.SetMatrix( "rotation", rot );
+	}
 
 #if 0
 	for( int i = 0; i < newEntity->epairs.GetNumKeyVals(); i++ )
@@ -535,7 +560,7 @@ void ResolveEntity( gltfData* data, idMapEntity* newEntity, gltfNode* node )
 #endif
 }
 
-int FindEntities( gltfData* data, idMapEntity::EntityListRef entities, gltfNode* node )
+int FindEntities( gltfData* data, idMapEntity::EntityListRef entities, gltfNode* node , idDict epairs )
 {
 	int entityCount = 0;
 
@@ -549,16 +574,28 @@ int FindEntities( gltfData* data, idMapEntity::EntityListRef entities, gltfNode*
 		// skip everything that is not an entity
 		if( !classnameStr.IsEmpty() )
 		{
-			idMapEntity* newEntity = new( TAG_IDLIB_GLTF ) idMapEntity();
+			auto* newEntity = new( TAG_IDLIB_GLTF ) idMapEntity();
 			entities.Append( newEntity );
+			newEntity->epairs.Copy( epairs );
+			epairs.Clear();
 			ResolveEntity( data, newEntity, node );
 			entityCount++;
 		}
+		else
+		{
+			idStr bindTarget = node->extras.strPairs.GetString( "bind" );
+
+			if( !bindTarget.IsEmpty() )
+			{
+				epairs.Set( "bind", bindTarget );
+			}
+		}
+
 	}
 
 	for( auto& child : node->children )
 	{
-		entityCount += FindEntities( data, entities, data->NodeList()[child] );
+		entityCount += FindEntities( data, entities, data->NodeList()[child], epairs );
 	}
 
 	return entityCount;
@@ -596,7 +633,7 @@ int idMapEntity::GetEntities( gltfData* data, EntityListRef entities, int sceneI
 			{
 				idStr classnameStr = node->extras.strPairs.GetString( "classname" );
 				bool skipInline = !node->extras.strPairs.GetBool( "inline", true );
-
+				idDict epairs;
 				// skip everything that is not an entity
 				if( !classnameStr.IsEmpty() )
 				{
@@ -615,10 +652,19 @@ int idMapEntity::GetEntities( gltfData* data, EntityListRef entities, int sceneI
 
 					entityCount++;
 				}
+				else
+				{
+					idStr bindTarget = node->extras.strPairs.GetString( "bind" );
+
+					if( !bindTarget.IsEmpty() )
+					{
+						epairs.Copy( node->extras.strPairs );
+					}
+				}
 				// add entities from all subnodes
 				for( auto& child : node->children )
 				{
-					entityCount += FindEntities( data, entities, data->NodeList()[child] );
+					entityCount += FindEntities( data, entities, data->NodeList()[child] , epairs );
 				}
 			}
 		}

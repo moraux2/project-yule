@@ -401,11 +401,6 @@ public:
 	{
 		return false;
 	}
-	const idVec3& TotalMovementDelta() const
-	{
-		static idVec3 temp;
-		return temp;
-	}
 	int NumFrames() const
 	{
 		return numFrames;
@@ -1054,6 +1049,19 @@ public:
 		{
 			GetAllMeshes( nodes[child], meshIds );
 		}
+	}
+
+	gltfSkin* GetSkin( idStr name )
+	{
+		for( auto skin : skins )
+		{
+			if( skin->name == name )
+			{
+				return skin;
+			}
+		}
+
+		return nullptr;
 	}
 
 	gltfSkin* GetSkin( int boneNodeId )
