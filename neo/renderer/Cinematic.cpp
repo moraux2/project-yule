@@ -90,8 +90,8 @@ public:
 	idCinematicLocal();
 	virtual					~idCinematicLocal();
 
-	virtual bool			InitFromFile( const char* qpath, bool looping );
-	virtual cinData_t		ImageForTime( int milliseconds );
+	virtual bool			InitFromFile( const char* qpath, bool looping, nvrhi::ICommandList* commandList );
+	virtual cinData_t		ImageForTime( int milliseconds, nvrhi::ICommandList* commandList );
 	virtual int				AnimationLength();
 	// RB begin
 	bool                    IsPlaying() const;
@@ -126,8 +126,8 @@ private:
 	AVSampleFormat			dst_smp;
 	bool					hasplanar;
 	SwrContext*				swr_ctx;
-	cinData_t				ImageForTimeFFMPEG( int milliseconds );
-	bool					InitFromFFMPEGFile( const char* qpath, bool looping );
+	cinData_t				ImageForTimeFFMPEG( int milliseconds, nvrhi::ICommandList* commandList );
+	bool					InitFromFFMPEGFile( const char* qpath, bool looping, nvrhi::ICommandList* commandList );
 	void					FFMPEGReset();
 	uint8_t*				lagBuffer[NUM_LAG_FRAMES] = {};
 	int						lagBufSize[NUM_LAG_FRAMES] = {};
@@ -136,8 +136,8 @@ private:
 #endif
 #ifdef USE_BINKDEC
 	BinkHandle				binkHandle;
-	cinData_t				ImageForTimeBinkDec( int milliseconds );
-	bool					InitFromBinkDecFile( const char* qpath, bool looping );
+	cinData_t				ImageForTimeBinkDec( int milliseconds, nvrhi::ICommandList* commandList );
+	bool					InitFromBinkDecFile( const char* qpath, bool looping, nvrhi::ICommandList* commandList );
 	void					BinkDecReset();
 
 	YUVbuffer				yuvBuffer;
@@ -335,7 +335,7 @@ idCinematic::~idCinematic()
 idCinematic::InitFromFile
 ==============
 */
-bool idCinematic::InitFromFile( const char* qpath, bool looping )
+bool idCinematic::InitFromFile( const char* qpath, bool looping, nvrhi::ICommandList* commandList )
 {
 	return false; //Carl: this is just the abstract virtual method
 }
@@ -374,7 +374,7 @@ void idCinematic::ResetTime( int milliseconds )
 idCinematic::ImageForTime
 ==============
 */
-cinData_t idCinematic::ImageForTime( int milliseconds )
+cinData_t idCinematic::ImageForTime( int milliseconds, nvrhi::ICommandList* commandList )
 {
 	cinData_t c;
 	memset( &c, 0, sizeof( c ) );
@@ -613,7 +613,7 @@ const char* GetSampleFormat( AVSampleFormat sample_fmt )
 idCinematicLocal::InitFromFFMPEGFile
 ==============
 */
-bool idCinematicLocal::InitFromFFMPEGFile( const char* qpath, bool amilooping )
+bool idCinematicLocal::InitFromFFMPEGFile( const char* qpath, bool amilooping, nvrhi::ICommandList* commandList )
 {
 	int ret;
 	int ret2;
@@ -797,7 +797,7 @@ bool idCinematicLocal::InitFromFFMPEGFile( const char* qpath, bool amilooping )
 	status = FMV_PLAY;
 	hasFrame = false;
 	framePos = -1;
-	ImageForTime( 0 );
+	ImageForTime( 0, commandList );
 	status = ( looping ) ? FMV_PLAY : FMV_IDLE;
 
 	return true;
@@ -855,7 +855,7 @@ void idCinematicLocal::FFMPEGReset()
 #endif
 
 #ifdef USE_BINKDEC
-bool idCinematicLocal::InitFromBinkDecFile( const char* qpath, bool amilooping )
+bool idCinematicLocal::InitFromBinkDecFile( const char* qpath, bool amilooping, nvrhi::ICommandList* commandList )
 {
 	looping = amilooping;
 	startTime = 0;
@@ -924,7 +924,7 @@ bool idCinematicLocal::InitFromBinkDecFile( const char* qpath, bool amilooping )
 	status = FMV_PLAY;
 	hasFrame = false;                               // SRS - Implemented hasFrame for BinkDec behaviour consistency with FFMPEG
 	framePos = -1;
-	ImageForTime( 0 );                              // SRS - Was missing initial call to ImageForTime() - fixes validation errors when using Vulkan renderer
+	ImageForTime( 0, commandList );                 // SRS - Was missing initial call to ImageForTime() - fixes validation errors when using Vulkan renderer
 	status = ( looping ) ? FMV_PLAY : FMV_IDLE;     // SRS - Update status based on looping flag
 
 	return true;
@@ -950,7 +950,7 @@ void idCinematicLocal::BinkDecReset()
 idCinematicLocal::InitFromFile
 ==============
 */
-bool idCinematicLocal::InitFromFile( const char* qpath, bool amilooping )
+bool idCinematicLocal::InitFromFile( const char* qpath, bool amilooping, nvrhi::ICommandList* commandList )
 {
 	unsigned short RoQID;
 
@@ -1002,13 +1002,13 @@ bool idCinematicLocal::InitFromFile( const char* qpath, bool amilooping )
 		animationLength = 0;
 		fileName = temp;
 		//idLib::Warning( "New filename: '%s'\n", fileName.c_str() );
-		return InitFromFFMPEGFile( fileName.c_str(), amilooping );
+		return InitFromFFMPEGFile( fileName.c_str(), amilooping, commandList );
 #elif defined(USE_BINKDEC)
 		temp = fileName.StripFileExtension() + ".bik";
 		animationLength = 0;
 		fileName = temp;
 		//idLib::Warning( "New filename: '%s'\n", fileName.c_str() );
-		return InitFromBinkDecFile( fileName.c_str(), amilooping );
+		return InitFromBinkDecFile( fileName.c_str(), amilooping, commandList );
 #else
 		animationLength = 0;
 		return false;
@@ -1041,7 +1041,7 @@ bool idCinematicLocal::InitFromFile( const char* qpath, bool amilooping )
 	{
 		RoQ_init();
 		status = FMV_PLAY;
-		ImageForTime( 0 );
+		ImageForTime( 0, commandList );
 		common->Printf( "Loaded RoQ file: '%s', looping=%d, %dx%d, %3.2f FPS\n", fileName.c_str(), looping, CIN_WIDTH, CIN_HEIGHT, frameRate );
 		status = ( looping ) ? FMV_PLAY : FMV_IDLE;
 		return true;
@@ -1169,18 +1169,18 @@ void idCinematicLocal::ResetTime( int time )
 idCinematicLocal::ImageForTime
 ==============
 */
-cinData_t idCinematicLocal::ImageForTime( int thisTime )
+cinData_t idCinematicLocal::ImageForTime( int thisTime, nvrhi::ICommandList* commandList )
 {
 #if defined(USE_FFMPEG)
 	// Carl: Handle BFG format BINK videos separately
 	if( !isRoQ )
 	{
-		return ImageForTimeFFMPEG( thisTime );
+		return ImageForTimeFFMPEG( thisTime, commandList );
 	}
 #elif defined(USE_BINKDEC) // DG: libbinkdec support
 	if( !isRoQ )
 	{
-		return ImageForTimeBinkDec( thisTime );
+		return ImageForTimeBinkDec( thisTime, commandList );
 	}
 #endif
 
@@ -1294,7 +1294,7 @@ cinData_t idCinematicLocal::ImageForTime( int thisTime )
 	cinData.imageWidth = CIN_WIDTH;
 	cinData.imageHeight = CIN_HEIGHT;
 	cinData.status = status;
-	img->UploadScratch( image, CIN_WIDTH, CIN_HEIGHT );
+	img->UploadScratch( image, CIN_WIDTH, CIN_HEIGHT, commandList );
 	cinData.image = img;
 
 	return cinData;
@@ -1306,7 +1306,7 @@ idCinematicLocal::ImageForTimeFFMPEG
 ==============
 */
 #if defined(USE_FFMPEG)
-cinData_t idCinematicLocal::ImageForTimeFFMPEG( int thisTime )
+cinData_t idCinematicLocal::ImageForTimeFFMPEG( int thisTime, nvrhi::ICommandList* commandList )
 {
 	cinData_t	cinData;
 	uint8_t*	audioBuffer = NULL;
@@ -1477,7 +1477,7 @@ cinData_t idCinematicLocal::ImageForTimeFFMPEG( int thisTime )
 	cinData.imageWidth = CIN_WIDTH;
 	cinData.imageHeight = CIN_HEIGHT;
 	cinData.status = status;
-	img->UploadScratch( image, CIN_WIDTH, CIN_HEIGHT );
+	img->UploadScratch( image, CIN_WIDTH, CIN_HEIGHT, commandList );
 	hasFrame = true;
 	cinData.image = img;
 
@@ -1504,7 +1504,7 @@ cinData_t idCinematicLocal::ImageForTimeFFMPEG( int thisTime )
 
 
 #ifdef USE_BINKDEC
-cinData_t idCinematicLocal::ImageForTimeBinkDec( int thisTime )
+cinData_t idCinematicLocal::ImageForTimeBinkDec( int thisTime, nvrhi::ICommandList* commandList )
 {
 	cinData_t	cinData;
 	int16_t*	audioBuffer = NULL;
@@ -1597,7 +1597,7 @@ cinData_t idCinematicLocal::ImageForTimeBinkDec( int thisTime )
 
 	double invAspRat = double( CIN_HEIGHT ) / double( CIN_WIDTH );
 
-	idImage* imgs[3] = {imgY, imgCb, imgCr}; // that's the order of the channels in yuvBuffer[]
+	idImage* imgs[ 3 ] = { imgY, imgCb, imgCr }; // that's the order of the channels in yuvBuffer[]
 	for( int i = 0; i < 3; ++i )
 	{
 		// Note: img->UploadScratch() seems to assume 32bit per pixel data, but this is 8bit/pixel
@@ -1631,6 +1631,9 @@ cinData_t idCinematicLocal::ImageForTimeBinkDec( int thisTime )
 #endif
 		}
 
+#if defined( USE_NVRHI )
+		img->UploadScratch( yuvBuffer[i].data, w, h, commandList );
+#else
 		if( img->GetUploadWidth() != w || img->GetUploadHeight() != h )
 		{
 			idImageOpts opts = img->GetOpts();
@@ -1638,7 +1641,8 @@ cinData_t idCinematicLocal::ImageForTimeBinkDec( int thisTime )
 			opts.height = h;
 			img->AllocImage( opts, TF_LINEAR, TR_REPEAT );
 		}
-		img->SubImageUpload( 0, 0, 0, 0, w, h, yuvBuffer[i].data );
+		img->SubImageUpload( 0, 0, 0, 0, w, h, yuvBuffer[i].data, commandList );
+#endif
 	}
 
 	hasFrame = true;

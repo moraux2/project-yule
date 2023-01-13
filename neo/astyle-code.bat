@@ -12,4 +12,6 @@ REM astyle.exe -v --formatted --options=astyle-options.ini --recursive libs/oggv
 
 astyle.exe -v -Q --options=astyle-options.ini --recursive ../base/renderprogs/*.hlsl
 
+astyle.exe -v -Q --options=astyle-options.ini --recursive shaders/*.hlsl
+
 pause
