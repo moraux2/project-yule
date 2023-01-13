@@ -1882,6 +1882,7 @@ endif()
 
 
 # needs to come after nvrhi_d3d11 etc. for link order
+target_link_libraries(DoomIcedHellfire nvrhi)
 
 add_subdirectory(shaders)
 add_dependencies(DoomIcedHellfire Shaders)
