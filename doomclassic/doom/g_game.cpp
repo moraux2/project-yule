@@ -1908,7 +1908,7 @@ G_InitNew
 		}
 	}
 
-	G_DoLoadLevel( );
+	G_DoLoadLevel();
 }
 
 

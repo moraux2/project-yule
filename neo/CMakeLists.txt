@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.2)
 
 project(RBDOOM-3-BFG-IcedHellfireDev)
 
+set(CMAKE_CXX_STANDARD 17)
+
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 if(CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 6)
@@ -21,14 +23,8 @@ option(FORCE_COLOR_OUTPUT
 option(COMPILE_COMMANDS
 		"Generate compile_commands.json" OFF)
 
-option(USE_MFC_TOOLS
-		"Compile the legacy MFC based tools (unsupported)" OFF)
-
 option(USE_PRECOMPILED_HEADERS
 		"Use precompiled headers during build" ON)
-		
-option(SDL2
-		"Use SDL2 instead of SDL1.2" ON)
 		
 option(OPENAL
 		"Use OpenAL soft instead of XAudio2" OFF)
@@ -38,21 +34,18 @@ option(FFMPEG
 
 option(BINKDEC
 		"Use included libbinkdec to render Bink videos" OFF)
-		
-option(USE_VULKAN
-		"Use Vulkan instead of OpenGL" OFF)
 
 option(SPIRV_SHADERC
 		"Compile SPIR-V shader byte code using shaderc instead of using Glslang directly" OFF)
 
 option(USE_MoltenVK
-		"Use MoltenVK library directly instead of Vulkan loader on macOS" OFF)
+		"Link directly to MoltenVK library instead of Vulkan loader on macOS" OFF)
 
 option(ONATIVE
 		"Optimize for the host CPU" OFF)
 		
 option(WINDOWS10
-		"Build for Windows 10+" OFF)
+		"Build for Windows 10+" ON)
 		
 option(USE_SYSTEM_ZLIB
                 "Use the system zlib instead of the bundled one" OFF)
@@ -68,6 +61,14 @@ option(USE_SYSTEM_LIBGLEW
 
 option(USE_SYSTEM_RAPIDJSON
                 "Use the system rapidjson instead of the bundled one" OFF)
+
+option(USE_DX12
+				"Use DirectX 12" ON)
+
+option(USE_VULKAN
+				"Use Vulkan" ON)
+
+set(NVRHI_INSTALL OFF)
 
 set(CPU_TYPE "" CACHE STRING "When set, passes this string as CPU-ID which will be embedded into the binary.")
 
@@ -89,21 +90,14 @@ endif()
 
 if(UNIX)
 	set(OPENAL ON)
+	set(USE_DX12 OFF)
+	set(USE_VULKAN ON)
 	
     # SRS - Disable precompiled headers when cross-compiling on OSX, e.g. when creating universal binaries
-    if((CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64" AND CMAKE_OSX_ARCHITECTURES MATCHES "arm64" ) OR
-       (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64"  AND CMAKE_OSX_ARCHITECTURES MATCHES "x86_64"))
+    if((CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64" AND CMAKE_OSX_ARCHITECTURES MATCHES "arm64"  ) OR
+       (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64"  AND CMAKE_OSX_ARCHITECTURES MATCHES "x86_64"))
         set(USE_PRECOMPILED_HEADERS OFF)
     endif()
-
-	if(USE_VULKAN)
-		SET(SDL2 ON)
-		
-		# RB: disable precompiled headers on Linux with Vulkan because of error: POSIX thread support was disabled in PCH file but is currently enabled
-		if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-            set(USE_PRECOMPILED_HEADERS OFF)
-        endif()
-	endif()
 endif()
 
 if(COMPILE_COMMANDS)
@@ -141,15 +135,15 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_definitions(-Werror=format-security)
 	add_definitions(-Werror=format)
 
-	# Compiler check (needs -std=c++14 flag)
+	# Compiler check (needs -std=c++17 flag)
 	include(CheckCXXCompilerFlag)
-	CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
-	if(COMPILER_SUPPORTS_CXX14)
-		set(CMAKE_CXX_STANDARD 14)
+	CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
+	if(COMPILER_SUPPORTS_CXX17)
+		set(CMAKE_CXX_STANDARD 17)
 		set(CMAKE_CXX_STANDARD_REQUIRED ON)
 		set(CMAKE_CXX_EXTENSIONS OFF)
 	else()
-		message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a different C++ compiler.")
+		message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support. Please use a different C++ compiler.")
 	endif()
 
 	if(CPU_TYPE)
@@ -177,7 +171,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     if(CMAKE_C_COMPILER_ID MATCHES "Clang")
 		# add clang-specific settings for warnings (the second one make sure clang doesn't complain
 		# about unknown -W flags, like -Wno-unused-but-set-variable)
-		# SRS - Add -Wno-deprecated-register and -Wno-expansion-to-defined to list of warning settings
+		# SRS - Add -Wno-expansion-to-defined to list of warning settings
 		add_definitions(-Wno-local-type-template-args -Wno-unknown-warning-option -Wno-inline-new-delete -Wno-switch-enum -Wno-deprecated-register -Wno-expansion-to-defined -fms-extensions)
 	endif()
 	
@@ -192,7 +186,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_compile_options(-fno-strict-aliasing)
 
 	# SRS - Make sure OSX can find system headers and add support for minimum OSX runtime version
-	if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    if(APPLE)
 		# SRS - Also add -fasm-blocks otherwise Xcode complains and -Qunused-arguments to silence MMX/SSE unused arg warnings when compiling for Apple arm64
 		add_definitions(-fasm-blocks -Qunused-arguments)
         if(CMAKE_OSX_SYSROOT)
@@ -281,6 +275,7 @@ elseif(MSVC)
 	# endif()
 
 	add_definitions(-DWIN32 
+					-DNOMINMAX
 					-D_WINDOWS
 					-D_CRT_SECURE_NO_DEPRECATE
 					-D_CRT_NONSTDC_NO_DEPRECATE
@@ -294,15 +289,6 @@ elseif(MSVC)
 					
 	if(NOT CMAKE_CL_64)
 		add_definitions(-D_USE_32BIT_TIME_T)
-	endif()
-					
-	if(USE_MFC_TOOLS)
-		add_definitions(-D_AFXDLL)
-		
-		# 0: Use Standard Windows Libraries
-		# 1: Use MFC in a Static Library
-		# 2: Use MFC in a Shared DLL 
-		set(CMAKE_MFC_FLAG 2)
 	endif()
 
 endif()
@@ -360,12 +346,11 @@ macro(SET_OPTION option value)
 endmacro()
 
 if(USE_VULKAN)
-
 	# RB: moved this above the general Vulkan part so glslang does not include Vulkan SDK headers
 	# which causes all kinds of weird segmentation faults because struct sizes don't match
  
     # SRS - Set default VULKAN_SDK location if environment variable not defined on OSX
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT DEFINED ENV{VULKAN_SDK})
+    if(APPLE AND NOT DEFINED ENV{VULKAN_SDK})
         if(NOT USE_MoltenVK)
             # SRS - Vulkan SDK installer copies standard vulkan headers and libs to /usr/local on OSX
             set(ENV{VULKAN_SDK} /usr/local)
@@ -373,42 +358,6 @@ if(USE_VULKAN)
             message(FATAL_ERROR "Must define VULKAN_SDK location if USE_MoltenVK option enabled!")
         endif()
     endif()
-
-	if(SPIRV_SHADERC)
-		add_definitions(-DSPIRV_SHADERC)
-
-		# SRS - Add case for UNIX/OSX
-		if(CMAKE_CL_64 OR UNIX)
-			link_directories($ENV{VULKAN_SDK}/Lib)
-		else()
-			link_directories($ENV{VULKAN_SDK}/Lib32)
-		endif()
-
-	else()
-		# override Glslang build options
-		
-		# options required by November 2018 release
-		SET_OPTION(ENABLE_SPVREMAPPER ON)
-		SET_OPTION(ENABLE_GLSLANG_BINARIES OFF)
-		SET_OPTION(ENABLE_HLSL OFF)
-		SET_OPTION(ENABLE_OPT ON)
-		SET_OPTION(SPIRV_SKIP_EXECUTABLES ON)
-		
-		# options required by July 2020 release
-		SET_OPTION(ENABLE_PCH OFF)
-		SET_OPTION(ENABLE_CTEST OFF)
-		SET_OPTION(BUILD_EXTERNAL OFF)
-		SET_OPTION(SKIP_GLSLANG_INSTALL ON)
-
-		#add_definitions(-DGLSLANG_MINOR_VERSION=13)
-	
-		set(GLSLANG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/glslang)
-		add_subdirectory(${GLSLANG_DIR})
-	
-		include_directories(${GLSLANG_DIR})
-		
-		#link_directories($ENV{VULKAN_SDK}/Lib)
-	endif()
 
 	# Use FindVulkan module added with CMAKE 3.7
 	if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
@@ -418,14 +367,20 @@ if(USE_VULKAN)
 
 	if(NOT Vulkan_FOUND)
 		message(FATAL_ERROR "Could not find Vulkan library!")
+		#find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS ${CMAKE_SOURCE_DIR}/libs/vulkan)
+		#if(Vulkan_LIBRARY)
+		#	set(Vulkan_FOUND ON)
+		#	message("Using bundled Vulkan library version")
+		#endif()
 	else()
-        add_definitions(-DUSE_VULKAN)
         include_directories($ENV{VULKAN_SDK}/include)
 
-		if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        if(APPLE)
             # SRS - Enable Beta extensions for VULKAN_SDK portability subset features on OSX
             add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
-            # SRS - Optionally use MoltenVK headers/library for runtime config functions on OSX
+            # SRS - Explicitly define dxc path so find_package(DXCspirv) uses the specified Vulkan SDK location on OSX
+            set(DXC_SPIRV_EXECUTABLE $ENV{VULKAN_SDK}/bin/dxc CACHE FILEPATH "Path to SPIR-V shader compiler." FORCE)
+            # SRS - Optionally link directly to MoltenVK headers/library for runtime config functions on OSX
             if(USE_MoltenVK)
                 add_definitions(-DUSE_MoltenVK)
                 include_directories($ENV{VULKAN_SDK}/../MoltenVK/include)
@@ -442,7 +397,6 @@ if(USE_VULKAN)
 	elseif(WIN32)
 		add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
 	endif()
-
 else()
 
 	if(USE_SYSTEM_LIBGLEW)
@@ -469,6 +423,30 @@ else()
 	endif()
 endif()
 
+set(NVRHI_WITH_DX11 "${USE_DX11}" CACHE BOOL "" FORCE)
+set(NVRHI_WITH_DX12 "${USE_DX12}" CACHE BOOL "" FORCE)
+set(NVRHI_WITH_VULKAN "${USE_VULKAN}" CACHE BOOL "" FORCE)
+
+set(NVRHI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/nvrhi)
+add_subdirectory(${NVRHI_DIR})
+add_definitions(-DUSE_NVRHI)
+
+if(USE_DX11)
+	find_package(FXC REQUIRED)
+endif()
+
+if(USE_DX12)
+	find_package(DXCdxil REQUIRED)
+	set(USE_DXIL_ON_DX12 TRUE CACHE BOOL "Use DXC to compile DXIL shaders on DX12 - otherwise FXC and DXBC")
+endif()
+
+if(USE_VULKAN)
+	find_package(DXCspirv REQUIRED)
+endif()
+
+include_directories(${NVRHI_DIR}/include)
+
+
 if(USE_SYSTEM_RAPIDJSON)
 find_package(rapidjson REQUIRED)
 endif(USE_SYSTEM_RAPIDJSON)
@@ -480,8 +458,6 @@ else (RAPIDJSON_FOUND)
 	include_directories("libs/rapidjson/include")
 endif (RAPIDJSON_FOUND)
 
-
-	
 add_subdirectory(idlib)
 add_subdirectory(typeinfo)
 
@@ -513,6 +489,8 @@ file(GLOB RENDERER_JOBS_PRELIGHTSHADOWVOLUME_INCLUDES renderer/jobs/prelightshad
 file(GLOB RENDERER_JOBS_PRELIGHTSHADOWVOLUME_SOURCES renderer/jobs/prelightshadowvolume/*.cpp)
 file(GLOB RENDERER_JOBS_STATICSHADOWVOLUME_INCLUDES renderer/jobs/staticshadowvolume/*.h)
 file(GLOB RENDERER_JOBS_STATICSHADOWVOLUME_SOURCES renderer/jobs/staticshadowvolume/*.cpp)
+file(GLOB RENDERER_PASSES_INCLUDES renderer/Passes/*.h)
+file(GLOB RENDERER_PASSES_SOURCES renderer/Passes/*.cpp)
 
 file(GLOB RENDERER_SMAA_INCLUDES renderer/SMAA/*.h)
 
@@ -522,17 +500,20 @@ file(GLOB RENDERER_OPENGL_SOURCES renderer/OpenGL/*.cpp)
 file(GLOB RENDERER_VULKAN_INCLUDES renderer/Vulkan/*.h)
 file(GLOB RENDERER_VULKAN_SOURCES renderer/Vulkan/*.cpp)
 
-file(GLOB SHADERS ../base/renderprogs/*.hlsl ../base/renderprogs/*.inc )
-file(GLOB SHADERS_BUILTIN ../base/renderprogs/builtin/*.hlsl )
-file(GLOB SHADERS_BUILTIN_DEBUG ../base/renderprogs/builtin/debug/*.hlsl )
-file(GLOB SHADERS_BUILTIN_FOG ../base/renderprogs/builtin/fog/*.hlsl )
-file(GLOB SHADERS_BUILTIN_LEGACY ../base/renderprogs/builtin/legacy/*.hlsl )
-file(GLOB SHADERS_BUILTIN_LIGHTING ../base/renderprogs/builtin/lighting/*.hlsl )
-file(GLOB SHADERS_BUILTIN_POST ../base/renderprogs/builtin/post/*.hlsl )
-file(GLOB SHADERS_BUILTIN_SSAO ../base/renderprogs/builtin/SSAO/*.hlsl )
-file(GLOB SHADERS_BUILTIN_SSGI ../base/renderprogs/builtin/SSGI/*.hlsl )
-file(GLOB SHADERS_BUILTIN_VIDEO ../base/renderprogs/builtin/video/*.hlsl )
-file(GLOB SHADERS_BUILTIN_VR ../base/renderprogs/builtin/VR/*.hlsl )
+file(GLOB RENDERER_NVRHI_INCLUDES renderer/NVRHI/*.h)
+file(GLOB RENDERER_NVRHI_SOURCES renderer/NVRHI/*.cpp)
+
+file(GLOB SHADERS shaders/*.hlsl shaders/*.inc )
+file(GLOB SHADERS_BUILTIN shaders/builtin/*.hlsl )
+file(GLOB SHADERS_BUILTIN_DEBUG shaders/builtin/debug/*.hlsl )
+file(GLOB SHADERS_BUILTIN_FOG shaders/builtin/fog/*.hlsl )
+file(GLOB SHADERS_BUILTIN_LEGACY shaders/builtin/legacy/*.hlsl )
+file(GLOB SHADERS_BUILTIN_LIGHTING shaders/builtin/lighting/*.hlsl )
+file(GLOB SHADERS_BUILTIN_POST shaders/builtin/post/*.hlsl )
+file(GLOB SHADERS_BUILTIN_SSAO shaders/builtin/SSAO/*.hlsl )
+file(GLOB SHADERS_BUILTIN_SSGI shaders/builtin/SSGI/*.hlsl )
+file(GLOB SHADERS_BUILTIN_VIDEO shaders/builtin/video/*.hlsl )
+file(GLOB SHADERS_BUILTIN_VR shaders/builtin/VR/*.hlsl )
 
 file(GLOB IRRXML_INCLUDES libs/irrxml/src/*.h)
 file(GLOB IRRXML_SOURCES libs/irrxml/src/*.cpp)
@@ -759,6 +740,16 @@ file(GLOB RAPIDJSON_INCLUDES libs/rapidjson/include/rapidjson/*.h)
 	
 file(GLOB SYS_INCLUDES sys/*.h)
 file(GLOB SYS_SOURCES sys/*.cpp)
+
+if(NOT USE_DX12)
+	get_filename_component(devicemanager_dx12_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/DeviceManager_DX12.cpp ABSOLUTE)
+	list(REMOVE_ITEM SYS_SOURCES "${devicemanager_dx12_cpp_full_path}")
+endif()
+
+if(NOT USE_VULKAN)
+	get_filename_component(devicemanager_vk_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/DeviceManager_VK.cpp ABSOLUTE)
+	list(REMOVE_ITEM SYS_SOURCES "${devicemanager_vk_cpp_full_path}")
+endif()
 
 file(GLOB UI_INCLUDES ui/*.h)
 file(GLOB UI_SOURCES ui/*.cpp)
@@ -993,6 +984,9 @@ file(GLOB IMGUI_EDITOR_SOURCES tools/imgui/*.cpp)
 file(GLOB IMGUI_EDITOR_LIGHT_INCLUDES tools/imgui/lighteditor/*.h)
 file(GLOB IMGUI_EDITOR_LIGHT_SOURCES tools/imgui/lighteditor/*.cpp)
 
+file(GLOB IMGUI_EDITOR_UTIL_INCLUDES tools/imgui/util/*.h)
+file(GLOB IMGUI_EDITOR_UTIL_SOURCES tools/imgui/util/*.cpp)
+
 file(GLOB DOOMCLASSIC_INCLUDES ../doomclassic/doom/*.h)
 file(GLOB DOOMCLASSIC_SOURCES ../doomclassic/doom/*.cpp)
 
@@ -1019,7 +1013,7 @@ set(WIN32_SOURCES
 	sys/win32/win_syscon.cpp
 	sys/win32/win_taskkeyhook.cpp
 	sys/win32/win_wndproc.cpp)
-	
+
 if(MSVC)
 	list(APPEND WIN32_SOURCES sys/win32/win_cpu.cpp)
 endif()
@@ -1061,6 +1055,7 @@ set(WIN32_RESOURCES
 	# sys/win32/rc/res/dbg_open.bmp
 	# sys/win32/rc/res/dbg_toolbar.bmp
 	sys/win32/rc/res/doom.ico
+	sys/win32/rc/doom.rc
 	# sys/win32/rc/res/fpoint.cur
 	# sys/win32/rc/res/fxed_link.ico
 	# sys/win32/rc/res/fxed_toolbar.bmp
@@ -1090,13 +1085,6 @@ set(WIN32_RESOURCES
 
 
 
-#if(USE_MFC_TOOLS)
-	list(APPEND WIN32_RESOURCES sys/win32/rc/doom.rc)
-#else()
-#	list(APPEND WIN32_RESOURCES sys/win32/rc/doom_nomfc.rc)
-#endif()
-
-
 file(GLOB POSIX_INCLUDES sys/posix/*.h)
 file(GLOB POSIX_SOURCES sys/posix/*.cpp)
 
@@ -1106,15 +1094,14 @@ file(GLOB COMMON_SOURCES sys/common/*.cpp)
 file(GLOB SDL_INCLUDES sys/sdl/*.h)
 file(GLOB SDL_SOURCES sys/sdl/*.cpp)
 
-# Eric: Utilize either the Vulkan or GL implementation of SDL
 if(UNIX)
-	if(USE_VULKAN)
+    #if(USE_VULKAN)
 		get_filename_component(sdl_glimp_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/sdl/sdl_glimp.cpp ABSOLUTE)
 		list(REMOVE_ITEM SDL_SOURCES "${sdl_glimp_cpp_full_path}")
-	else()
-		get_filename_component(sdl_vkimp_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/sdl/sdl_vkimp.cpp ABSOLUTE)
-		list(REMOVE_ITEM SDL_SOURCES "${sdl_vkimp_cpp_full_path}")
-	endif()
+	#else()
+	#	get_filename_component(sdl_vkimp_cpp_full_path ${CMAKE_CURRENT_SOURCE_DIR}/sys/sdl/sdl_vkimp.cpp ABSOLUTE)
+	#	list(REMOVE_ITEM SDL_SOURCES "${sdl_vkimp_cpp_full_path}")
+	#endif()
 endif()
 
 source_group("aas" FILES ${AAS_INCLUDES})
@@ -1135,6 +1122,9 @@ source_group("renderer" FILES ${RENDERER_SOURCES})
 source_group("renderer\\Color" FILES ${RENDERER_COLOR_INCLUDES})
 source_group("renderer\\Color" FILES ${RENDERER_COLOR_SOURCES})
 
+source_group("renderer\\Passes" FILES ${RENDERER_PASSES_INCLUDES})
+source_group("renderer\\Passes" FILES ${RENDERER_PASSES_SOURCES})
+
 source_group("renderer\\DXT" FILES ${RENDERER_DXT_INCLUDES})
 source_group("renderer\\DXT" FILES ${RENDERER_DXT_SOURCES})
 
@@ -1152,6 +1142,9 @@ source_group("renderer\\jobs\\staticshadowvolume" FILES ${RENDERER_JOBS_STATICSH
 
 source_group("renderer\\OpenGL" FILES ${RENDERER_OPENGL_INCLUDES})
 source_group("renderer\\OpenGL" FILES ${RENDERER_OPENGL_SOURCES})
+
+source_group("renderer\\NVRHI" FILES ${RENDERER_NVRHI_INCLUDES})
+source_group("renderer\\NVRHI" FILES ${RENDERER_NVRHI_SOURCES})
 
 source_group("renderer\\Vulkan" FILES ${RENDERER_VULKAN_INCLUDES})
 source_group("renderer\\Vulkan" FILES ${RENDERER_VULKAN_SOURCES})
@@ -1347,6 +1340,8 @@ source_group("tools\\imgui" FILES ${IMGUI_EDITOR_SOURCES})
 source_group("tools\\imgui\\lighteditor" FILES ${IMGUI_EDITOR_LIGHT_INCLUDES})
 source_group("tools\\imgui\\lighteditor" FILES ${IMGUI_EDITOR_LIGHT_SOURCES})
 
+source_group("tools\\imgui\\util" FILES ${IMGUI_EDITOR_UTIL_INCLUDES})
+source_group("tools\\imgui\\util" FILES ${IMGUI_EDITOR_UTIL_SOURCES})
 
 set(RBDOOM3_INCLUDES
 			${AAS_INCLUDES}
@@ -1360,6 +1355,7 @@ set(RBDOOM3_INCLUDES
 			${RENDERER_JOBS_DYNAMICSHADOWVOLUME_INCLUDES}
 			${RENDERER_JOBS_PRELIGHTSHADOWVOLUME_INCLUDES}
 			${RENDERER_JOBS_STATICSHADOWVOLUME_INCLUDES}
+			${RENDERER_PASSES_INCLUDES}
 			
 			${SHADERS}
 			${SHADERS_BUILTIN}
@@ -1402,6 +1398,7 @@ set(RBDOOM3_INCLUDES
 			${TOOLS_INCLUDES}
 			${IMGUI_EDITOR_INCLUDES}
 			${IMGUI_EDITOR_LIGHT_INCLUDES}
+			${IMGUI_EDITOR_UTIL_INCLUDES}
 			
 			${GAMED3XP_INCLUDES}
 			${GAMED3XP_AI_INCLUDES} 
@@ -1428,6 +1425,7 @@ set(RBDOOM3_SOURCES
 			${RENDERER_JOBS_DYNAMICSHADOWVOLUME_SOURCES}
 			${RENDERER_JOBS_PRELIGHTSHADOWVOLUME_SOURCES}
 			${RENDERER_JOBS_STATICSHADOWVOLUME_SOURCES}
+			${RENDERER_PASSES_SOURCES}
 			${IRRXML_SOURCES}
 			${FRAMEWORK_IMGUI_SOURCES}
 			${IMGUI_SOURCES}
@@ -1450,6 +1448,7 @@ set(RBDOOM3_SOURCES
 			
 			${IMGUI_EDITOR_SOURCES}
 			${IMGUI_EDITOR_LIGHT_SOURCES}
+			${IMGUI_EDITOR_UTIL_SOURCES}
 			
 			${GAMED3XP_SOURCES}
 			${GAMED3XP_AI_SOURCES}
@@ -1462,6 +1461,19 @@ set(RBDOOM3_SOURCES
 			${GAMED3XP_PHYSICS_SOURCES}
 			${GAMED3XP_SCRIPT_SOURCES}
 			)
+
+macro(AddSubdirectory dirName)
+	file(GLOB DIR_INCLUDES ${dirName}/*.h)
+	file(GLOB DIR_SOURCES ${dirName}/*.cpp)
+
+	source_group(${dirName} FILES ${DIR_INCLUDES})
+	source_group(${dirName} FILES ${DIR_SOURCES})
+
+	list(APPEND RBDOOM3_INCLUDES ${DIR_INCLUDES})
+	list(APPEND RBDOOM3_SOURCES ${DIR_SOURCES})
+endmacro()
+
+AddSubdirectory( tools/imgui/afeditor )
 
 if(DOOM_CLASSIC)
 	add_definitions(-DUSE_DOOMCLASSIC)
@@ -1500,27 +1512,11 @@ if(MSVC)
 		include_directories(${DirectX_INCLUDE_DIR})
 	endif()
 	
-	if(USE_VULKAN)
-		list(APPEND RBDOOM3_INCLUDES ${RENDERER_VULKAN_INCLUDES})
-		list(APPEND RBDOOM3_SOURCES ${RENDERER_VULKAN_SOURCES})
-		
-		set(Vulkan_LIBRARIES 
-			${Vulkan_LIBRARY})
+	if(USE_DX12)
+		list(APPEND RBDOOM3_INCLUDES ${RENDERER_NVRHI_INCLUDES})
+		list(APPEND RBDOOM3_SOURCES ${RENDERER_NVRHI_SOURCES})
 
-		if(SPIRV_SHADERC)
-			list(APPEND Vulkan_LIBRARIES shaderc_combined)
-		else()
-			list(APPEND Vulkan_LIBRARIES glslang SPIRV)
-
-			if(ENABLE_GLSLANG_BINARIES)
-				list(APPEND Vulkan_LIBRARIES glslang-default-resource-limits)
-			endif()
-		endif()
-		
-	else()
-		list(APPEND RBDOOM3_INCLUDES ${RENDERER_OPENGL_INCLUDES})
-		list(APPEND RBDOOM3_SOURCES ${RENDERER_OPENGL_SOURCES})
-		
+		# RB: TODO REMOVE
 		set(OpenGL_LIBRARIES
 			opengl32
 			glu32)
@@ -1593,34 +1589,6 @@ if(MSVC)
 		
 	endif()
 	
-	if(USE_MFC_TOOLS)
-		
-		include_directories(libs/atlmfc/include)
-		if(CMAKE_CL_64)
-			link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/atlmfc/lib/amd64)
-		else()
-			link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/atlmfc/lib)
-		endif()
-		
-		add_definitions(-DUSE_MFC_TOOLS)
-		
-		list(APPEND RBDOOM3_SOURCES
-			${TOOLS_COMAFX_INCLUDES} ${TOOLS_COMAFX_SOURCES}
-			${TOOLS_COMMON_INCLUDES} ${TOOLS_COMMON_SOURCES}
-			${TOOLS_COMMON_PROPTREE_INCLUDES} ${TOOLS_COMMON_PROPTREE_SOURCES}
-			
-			${EDITOR_AF_INCLUDES} ${EDITOR_AF_SOURCES}
-			${EDITOR_DEBUGGER_INCLUDES} ${EDITOR_DEBUGGER_SOURCES}
-			${EDITOR_DECL_INCLUDES} ${EDITOR_DECL_SOURCES}
-			${EDITOR_GUIED_INCLUDES} ${EDITOR_GUIED_SOURCES}
-			${EDITOR_MATERIALEDITOR_INCLUDES} ${EDITOR_MATERIALEDITOR_SOURCES}
-			${EDITOR_PARTICLE_INCLUDES} ${EDITOR_PARTICLE_SOURCES}
-			${EDITOR_PDA_INCLUDES} ${EDITOR_PDA_SOURCES}
-			${EDITOR_RADIANT_INCLUDES} ${EDITOR_RADIANT_SOURCES}
-			${EDITOR_SCRIPT_INCLUDES} ${EDITOR_SCRIPT_SOURCES}
-			${EDITOR_SOUND_INCLUDES} ${EDITOR_SOUND_SOURCES})
-	endif()
-	
 	list(APPEND RBDOOM3_INCLUDES
 		${SYS_INCLUDES} 
 		${WIN32_INCLUDES})
@@ -1642,26 +1610,23 @@ if(MSVC)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/prelightshadowvolume/PreLightShadowVolume.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/staticshadowvolume/StaticShadowVolume.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/ShadowShared.cpp)
-		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/RenderLog.cpp)
-		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/Vulkan/vma.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES d3xp/gamesys/Class.cpp)
-		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/framework/precompiled.cpp)
 	
-		foreach( src_file ${RBDOOM3_PRECOMPILED_SOURCES} )
-			message(STATUS "-include precompiled.h for ${src_file}")
-		endforeach()
+		#foreach( src_file ${RBDOOM3_PRECOMPILED_SOURCES} )
+		#	message(STATUS "-include precompiled.h for ${src_file}")
+		#endforeach()
 	
 		set_source_files_properties(
-		${RBDOOM3_PRECOMPILED_SOURCES}
-		PROPERTIES
-		COMPILE_FLAGS "/Yuprecompiled.h"
-		OBJECT_DEPENDS "precompiled.pch"
+			${RBDOOM3_PRECOMPILED_SOURCES}
+			PROPERTIES
+			COMPILE_FLAGS "/Yuprecompiled.h"
+			OBJECT_DEPENDS "precompiled.pch"
 		)
 		
 		set_source_files_properties(framework/precompiled.cpp
-		PROPERTIES
-		COMPILE_FLAGS "/Ycprecompiled.h"
-		OBJECT_OUTPUTS "precompiled.pch"
+			PROPERTIES
+			COMPILE_FLAGS "/Ycprecompiled.h"
+			OBJECT_OUTPUTS "precompiled.pch"
 		)
 	endif()
 	
@@ -1682,6 +1647,14 @@ if(MSVC)
 	add_executable(DoomIcedHellfire WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 
 	add_dependencies(DoomIcedHellfire idlib typeinfogen)
+    
+    if(USE_DX12)
+		add_dependencies(DoomIcedHellfire nvrhi_d3d12)
+	endif()
+	
+	if(USE_VULKAN)
+		add_dependencies(DoomIcedHellfire nvrhi_vk)
+	endif()
 	
 	# call typeinfogen to generate neo/d3xp/gamesys/GameTypeInfo.h
 	add_custom_command(
@@ -1737,20 +1710,13 @@ else()
 			add_definitions(-DUSE_FFMPEG)
 			
 			include_directories(${FFMPEG_INCLUDE_DIR})
-			link_directories(${FFMPEG_LIBRARIES_DIRS})
 		endif()
 
-		if(SDL2)
-			find_package(SDL2 REQUIRED)
-			include_directories(${SDL2_INCLUDE_DIRS})
-			set(SDLx_LIBRARY ${SDL2_LIBRARIES})
-		else()
-			find_package(SDL REQUIRED)
-			include_directories(${SDL_INCLUDE_DIR})
-			set(SDLx_LIBRARY ${SDL_LIBRARY})
-		endif()
+		find_package(SDL2 REQUIRED)
+		include_directories(${SDL2_INCLUDE_DIRS})
+		set(SDLx_LIBRARY ${SDL2_LIBRARIES})
 
-		if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        if(APPLE)
 			list(REMOVE_ITEM POSIX_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/platform_linux.cpp)
 		else()
 			list(REMOVE_ITEM POSIX_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/platform_osx.cpp)
@@ -1765,7 +1731,7 @@ else()
 			add_definitions(-DUSE_OPENAL)
 
 			# SRS - Added support for OpenAL Soft headers on OSX (vs default macOS SDK headers)
-			if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND NOT OPENAL_INCLUDE_DIR MATCHES "SDKs/MacOSX.*\.sdk")
+            if(APPLE AND NOT OPENAL_INCLUDE_DIR MATCHES "SDKs/MacOSX.*\.sdk")
 				include_directories(${OPENAL_INCLUDE_DIR})
 				add_definitions(-DUSE_OPENAL_SOFT_INCLUDES)
 			endif()
@@ -1786,29 +1752,10 @@ else()
 		endif()
 		
 		if(USE_VULKAN)
-            list(APPEND RBDOOM3_INCLUDES ${RENDERER_VULKAN_INCLUDES})
-            list(APPEND RBDOOM3_SOURCES ${RENDERER_VULKAN_SOURCES})
-            
-            set(Vulkan_LIBRARIES 
-            	${Vulkan_LIBRARY})
+            list(APPEND RBDOOM3_INCLUDES ${RENDERER_NVRHI_INCLUDES})
+            list(APPEND RBDOOM3_SOURCES ${RENDERER_NVRHI_SOURCES})
 
-			# SRS - Added UNIX/OSX support for shaderc
-			if(SPIRV_SHADERC)
-				list(APPEND Vulkan_LIBRARIES shaderc_combined)
-			else()
-				list(APPEND Vulkan_LIBRARIES glslang SPIRV)
-
-                if(ENABLE_GLSLANG_BINARIES)
-                    list(APPEND Vulkan_LIBRARIES glslang-default-resource-limits)
-                endif()
-            endif()
-
-        else()
-			find_package(OpenGL REQUIRED)
-			include_directories(${OPENGL_INCLUDE_DIRS})
-
-            list(APPEND RBDOOM3_INCLUDES ${RENDERER_OPENGL_INCLUDES})
-            list(APPEND RBDOOM3_SOURCES ${RENDERER_OPENGL_SOURCES})
+            #set(Vulkan_LIBRARIES ${Vulkan_LIBRARY})
         endif()
 			
 	endif()
@@ -1826,7 +1773,6 @@ else()
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/prelightshadowvolume/PreLightShadowVolume.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/staticshadowvolume/StaticShadowVolume.cpp)
 		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/ShadowShared.cpp)
-		list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/RenderLog.cpp)
 
 		foreach( src_file ${RBDOOM3_PRECOMPILED_SOURCES} )
 			#message(STATUS "-include precompiled.h for ${src_file}")
@@ -1859,23 +1805,6 @@ else()
 				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 				COMMENT "Creating idlib/precompiled.h.gch for RBDoom3BFG"
 				)
-	endif()
-	
-	if(WIN32)
-		set(remove_command "del")
-	else()
-		set(remove_command "rm")
-	endif()
-	
-	if (USE_PRECOMPILED_HEADERS)
-		# it's ugly enough that the precompiled header binary needs to be in the 
-		# source directory (instead of the build directory), so let's at least
-		# delete it after build.
-		add_custom_target(rm_precomp_header ALL
-				COMMAND ${remove_command} "idlib/precompiled.h.gch"
-				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-				COMMENT "remove idlib/precompiled.h.gch"
-				)
 				
 		# make sure this is run after creating idlib
 		add_dependencies(precomp_header_rbdoom3bfg idlib)
@@ -1883,12 +1812,25 @@ else()
 
 	add_executable(DoomIcedHellfire WIN32 ${RBDOOM3_SOURCES})
 
+	if(USE_VULKAN)
+        add_dependencies(RBDoom3BFG nvrhi_vk)
+    endif()
 	if (USE_PRECOMPILED_HEADERS)
 		# make sure precompiled header is created before executable is compiled
 		add_dependencies(DoomIcedHellfire precomp_header_rbdoom3bfg idlib typeinfogen)
 		
+		if(WIN32)
+			set(remove_command "del")
+		else()
+			set(remove_command "rm")
+		endif()
+
 		# make sure precompiled header is deleted after executable is compiled
-		add_dependencies(rm_precomp_header DoomIcedHellfire)
+		add_custom_command(TARGET DoomIcedHellfire POST_BUILD
+				COMMAND ${remove_command} "idlib/precompiled.h.gch"
+				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+				COMMENT "remove idlib/precompiled.h.gch"
+		)
 	endif()	
 
 	# call typeinfogen to generate neo/d3xp/gamesys/GameTypeInfo.h
@@ -1902,14 +1844,14 @@ else()
 			)
 
 	if(NOT WIN32)
-		if(NOT "${CMAKE_SYSTEM}" MATCHES "Darwin")
+        if(NOT APPLE)
 			set(RT_LIBRARY rt)
 		endif()
 
 		target_link_libraries(DoomIcedHellfire
 			idlib
-			${Vulkan_LIBRARIES}
-			${OPENGL_LIBRARIES}
+			${Vulkan_LIBRARY}
+			#${OPENGL_LIBRARIES}
 			pthread
 			${RT_LIBRARY}
 			${SDLx_LIBRARY}
@@ -1922,5 +1864,26 @@ else()
 	    	${CMAKE_DL_LIBS}
 			)
 	endif()
-    
 endif()
+
+if(USE_DX12)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_DX12=1)
+	target_link_libraries(DoomIcedHellfire nvrhi_d3d12)
+endif()
+
+if(USE_DXIL_ON_DX12)
+	target_compile_definitions(DoomIcedHellfire PRIVATE USE_DXIL_ON_DX12=1)
+endif()
+
+if(USE_VULKAN)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_VK=1)
+	target_link_libraries(DoomIcedHellfire nvrhi_vk)
+endif()
+
+
+# needs to come after nvrhi_d3d11 etc. for link order
+target_link_libraries(DoomIcedHellfire nvrhi)
+
+add_subdirectory(shaders)
+add_dependencies(DoomIcedHellfire Shaders)
+

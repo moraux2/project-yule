@@ -230,7 +230,7 @@ struct default_t
 	int		scantranslate;		// PC scan code hack
 	int		untranslated;		// lousy hack
 
-	default_t( ) :
+	default_t() :
 		name( NULL ),
 		location( NULL ),
 		defaultvalue( 0 ),
