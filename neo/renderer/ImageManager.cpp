@@ -40,6 +40,7 @@ idImageManager	imageManager;
 idImageManager* globalImages = &imageManager;
 
 extern DeviceManager* deviceManager;
+extern idCVar r_uploadBufferSizeMB;
 
 idCVar preLoad_Images( "preLoad_Images", "1", CVAR_SYSTEM | CVAR_BOOL, "preload images during beginlevelload" );
 
@@ -892,7 +893,21 @@ idImageManager::LoadLevelImages
 int idImageManager::LoadLevelImages( bool pacifier )
 {
 #if defined( USE_NVRHI )
+	if( !commandList )
+	{
+		nvrhi::CommandListParameters params = {};
+		if( deviceManager->GetGraphicsAPI() == nvrhi::GraphicsAPI::VULKAN )
+		{
+			// SRS - set upload buffer size to avoid Vulkan staging buffer fragmentation
+			size_t maxBufferSize = ( size_t )( r_uploadBufferSizeMB.GetInteger() * 1024 * 1024 );
+			params.setUploadChunkSize( maxBufferSize );
+		}
+		commandList = deviceManager->GetDevice()->createCommandList( params );
+	}
+
 	common->UpdateLevelLoadPacifier();
+
+	commandList->open();
 #endif
 
 	int	loadCount = 0;
@@ -1007,10 +1022,35 @@ void idImageManager::PrintMemInfo( MemInfo_t* mi )
 
 void idImageManager::LoadDeferredImages( nvrhi::ICommandList* _commandList )
 {
+	if( !commandList )
+	{
+		nvrhi::CommandListParameters params = {};
+		if( deviceManager->GetGraphicsAPI() == nvrhi::GraphicsAPI::VULKAN )
+		{
+			// SRS - set upload buffer size to avoid Vulkan staging buffer fragmentation
+			size_t maxBufferSize = ( size_t )( r_uploadBufferSizeMB.GetInteger() * 1024 * 1024 );
+			params.setUploadChunkSize( maxBufferSize );
+		}
+		commandList = deviceManager->GetDevice()->createCommandList( params );
+	}
+
+	nvrhi::ICommandList* thisCmdList = _commandList;
+	if( !_commandList )
+	{
+		thisCmdList = commandList;
+		thisCmdList->open();
+	}
+
 	for( int i = 0; i < globalImages->imagesToLoad.Num(); i++ )
 	{
 		// This is a "deferred" load of textures to the gpu.
 		globalImages->imagesToLoad[i]->FinalizeImage( false, _commandList );
+	}
+
+	if( !_commandList )
+	{
+		thisCmdList->close();
+		deviceManager->GetDevice()->executeCommandList( thisCmdList );
 	}
 
 	globalImages->imagesToLoad.Clear();

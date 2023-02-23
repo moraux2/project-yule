@@ -20,8 +20,9 @@
 * DEALINGS IN THE SOFTWARE.
 */
 
-#include <precompiled.h>
-#pragma hdrstop
+// SRS - Disable PCH here, otherwise get Vulkan header mismatch failures with USE_AMD_ALLOCATOR option
+//#include <precompiled.h>
+//#pragma hdrstop
 
 #include <string>
 #include <queue>
@@ -36,6 +37,17 @@
 	#include <MoltenVK/vk_mvk_moltenvk.h>
 #endif
 #include <nvrhi/validation.h>
+
+#if defined( USE_AMD_ALLOCATOR )
+	#define VMA_IMPLEMENTATION
+	#define VMA_STATIC_VULKAN_FUNCTIONS 0
+	#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+	#include "vk_mem_alloc.h"
+
+	VmaAllocator m_VmaAllocator = nullptr;
+
+	idCVar r_vmaDeviceLocalMemoryMB( "r_vmaDeviceLocalMemoryMB", "256", CVAR_INTEGER | CVAR_INIT, "Size of VMA allocation block for gpu memory." );
+#endif
 
 // Define the Vulkan dynamic dispatcher - this needs to occur in exactly one cpp file in the program.
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -827,6 +839,7 @@ bool DeviceManager_VK::createDevice()
 
 	auto deviceFeatures = vk::PhysicalDeviceFeatures()
 						  .setShaderImageGatherExtended( true )
+						  .setShaderStorageImageReadWithoutFormat( true )
 						  .setSamplerAnisotropy( true )
 						  .setTessellationShader( true )
 						  .setTextureCompressionBC( true )
@@ -897,6 +910,23 @@ bool DeviceManager_VK::createDevice()
 	// stash the renderer string
 	auto prop = m_VulkanPhysicalDevice.getProperties();
 	m_RendererString = std::string( prop.deviceName.data() );
+
+#if defined( USE_AMD_ALLOCATOR )
+	// SRS - initialize the vma allocator
+	VmaVulkanFunctions vulkanFunctions = {};
+	vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+	vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+
+	VmaAllocatorCreateInfo allocatorCreateInfo = {};
+	allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+	allocatorCreateInfo.physicalDevice = m_VulkanPhysicalDevice;
+	allocatorCreateInfo.device = m_VulkanDevice;
+	allocatorCreateInfo.instance = m_VulkanInstance;
+	allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+	allocatorCreateInfo.flags = bufferAddressSupported ? VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT : 0;
+	allocatorCreateInfo.preferredLargeHeapBlockSize = r_vmaDeviceLocalMemoryMB.GetInteger() * 1024 * 1024;
+	vmaCreateAllocator( &allocatorCreateInfo, &m_VmaAllocator );
+#endif
 
 	common->Printf( "Created Vulkan device: %s\n", m_RendererString.c_str() );
 
@@ -1188,6 +1218,19 @@ void DeviceManager_VK::DestroyDeviceAndSwapChain()
 	{
 		m_VulkanInstance.destroyDebugReportCallbackEXT( m_DebugReportCallback );
 	}
+
+#if defined( USE_AMD_ALLOCATOR )
+	if( m_VmaAllocator )
+	{
+		// SRS - make sure image allocation garbage is emptied for all frames
+		for( int i = 0; i < NUM_FRAME_DATA; i++ )
+		{
+			idImage::EmptyGarbage();
+		}
+		vmaDestroyAllocator( m_VmaAllocator );
+		m_VmaAllocator = nullptr;
+	}
+#endif
 
 	if( m_VulkanDevice )
 	{
