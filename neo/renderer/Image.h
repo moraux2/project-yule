@@ -365,11 +365,20 @@ public:
 	// Adds the image to the list of images to load on the main thread to the gpu.
 	void		DeferredLoadImage();
 
+	// Removes the image from the list of images to load on the main thread to the gpu.
+	void		DeferredPurgeImage();
+
 	//---------------------------------------------
 	// Platform specific implementations
 	//---------------------------------------------
 
-#if defined( USE_VULKAN )
+#if defined( USE_NVRHI )
+
+#if defined( USE_AMD_ALLOCATOR )
+	static void	EmptyGarbage();
+#endif
+
+#elif defined( USE_VULKAN )
 	static void	EmptyGarbage();
 
 	VkImage		GetImage() const
@@ -536,6 +545,15 @@ private:
 	nvrhi::TextureHandle	texture;
 	nvrhi::SamplerHandle	sampler;
 	nvrhi::SamplerDesc		samplerDesc;
+
+#if defined( USE_AMD_ALLOCATOR )
+	VkImage					image;
+	VmaAllocation			allocation;
+
+	static int						garbageIndex;
+	static idList< VkImage >		imageGarbage[ NUM_FRAME_DATA ];
+	static idList< VmaAllocation >	allocationGarbage[ NUM_FRAME_DATA ];
+#endif
 
 #elif defined( USE_VULKAN )
 	void				CreateSampler();
