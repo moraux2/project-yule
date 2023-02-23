@@ -248,16 +248,15 @@ void idRenderBackend::Init()
 
 	for( int i = 0; i < NUM_FRAME_DATA; i++ )
 	{
-		// These command lists are run on the game/draw thread.
-		commandLists[i] = deviceManager->GetDevice()->createCommandList( commandListParms );
-		
 		if( deviceManager->GetGraphicsAPI() == nvrhi::GraphicsAPI::VULKAN )
 		{
 			// SRS - set upload buffer size to avoid Vulkan staging buffer fragmentation
 			size_t maxBufferSize = ( size_t )( r_uploadBufferSizeMB.GetInteger() * 1024 * 1024 );
-			commandListParams.setUploadChunkSize( maxBufferSize );
+			commandListParms.setUploadChunkSize( maxBufferSize );
 		}
-		commandList = deviceManager->GetDevice()->createCommandList( commandListParams );
+		
+		// SP - these command lists are run on the game/draw thread
+		commandLists[i] = deviceManager->GetDevice()->createCommandList( commandListParms );
 	}
 
 	commandList = deviceManager->GetDevice()->createCommandList();

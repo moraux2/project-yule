@@ -175,7 +175,7 @@ idVertexBuffer::idVertexBuffer()
 idVertexBuffer::AllocBufferObject
 ========================
 */
-bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferUsageType_t _usage, nvrhi::ICommandList* commandList )
+bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferUsageType_t bufferUsage, nvrhi::ICommandList* commandList )
 {
 	assert( !bufferHandle );
 	assert_16_byte_aligned( data );
@@ -186,7 +186,7 @@ bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferU
 	}
 
 	size = allocSize;
-	usage = _usage;
+	usage = bufferUsage;
 
 	int numBytes = GetAllocedSize();
 
@@ -263,10 +263,10 @@ bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferU
 		Update( data, allocSize, 0, true, commandList );
 	}
 
-	return !allocationFailed;
+	return true;
 }
 
-bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferUsageType_t bufferUsage, nvrhi::BufferDesc bufferDesc, nvrhi::ICommandList* commandList )
+bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferUsageType_t bufferUsage, nvrhi::BufferDesc vertexBufferDesc, nvrhi::ICommandList* commandList )
 {
 	assert( !bufferHandle );
 	assert_16_byte_aligned( data );
@@ -279,16 +279,47 @@ bool idVertexBuffer::AllocBufferObject( const void* data, int allocSize, bufferU
 	size = allocSize;
 	usage = bufferUsage;
 
-	bool allocationFailed = false;
-
 	int numBytes = GetAllocedSize();
-	bufferDesc.byteSize = numBytes;
+	vertexBufferDesc.byteSize = numBytes;
 	if( usage == BU_DYNAMIC )
 	{
-		bufferDesc.cpuAccess = nvrhi::CpuAccessMode::Write;
+		vertexBufferDesc.cpuAccess = nvrhi::CpuAccessMode::Write;
 	}
 
-	bufferHandle = deviceManager->GetDevice()->createBuffer( bufferDesc );
+#if defined( USE_AMD_ALLOCATOR )
+	if( m_VmaAllocator && r_vmaAllocateBufferMemory.GetBool() )
+	{
+		VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+		bufferCreateInfo.size = numBytes;
+		bufferCreateInfo.usage = static_cast< VkBufferUsageFlags >( pickBufferUsage( vertexBufferDesc ) );
+		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		VmaAllocationCreateInfo allocCreateInfo = {};
+		if( usage == BU_DYNAMIC )
+		{
+			allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+			allocCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		}
+		else
+		{
+			allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+		}
+
+		VkResult result = vmaCreateBuffer( m_VmaAllocator, &bufferCreateInfo, &allocCreateInfo, &vkBuffer, &allocation, &allocationInfo );
+		assert( result == VK_SUCCESS );
+
+		bufferHandle = deviceManager->GetDevice()->createHandleForNativeBuffer( nvrhi::ObjectTypes::VK_Buffer, vkBuffer, vertexBufferDesc );
+	}
+	else
+#endif
+	{
+		bufferHandle = deviceManager->GetDevice()->createBuffer( vertexBufferDesc );
+	}
+
+	if( !bufferHandle )
+	{
+		return false;
+	}
 
 	if( tr.backend.descriptorTableManager )
 	{

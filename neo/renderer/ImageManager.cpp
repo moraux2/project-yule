@@ -893,6 +893,7 @@ idImageManager::LoadLevelImages
 int idImageManager::LoadLevelImages( bool pacifier )
 {
 #if defined( USE_NVRHI )
+	/*
 	if( !commandList )
 	{
 		nvrhi::CommandListParameters params = {};
@@ -904,10 +905,8 @@ int idImageManager::LoadLevelImages( bool pacifier )
 		}
 		commandList = deviceManager->GetDevice()->createCommandList( params );
 	}
-
+	*/
 	common->UpdateLevelLoadPacifier();
-
-	commandList->open();
 #endif
 
 	int	loadCount = 0;
@@ -1022,6 +1021,7 @@ void idImageManager::PrintMemInfo( MemInfo_t* mi )
 
 void idImageManager::LoadDeferredImages( nvrhi::ICommandList* _commandList )
 {
+	/*
 	if( !commandList )
 	{
 		nvrhi::CommandListParameters params = {};
@@ -1040,6 +1040,7 @@ void idImageManager::LoadDeferredImages( nvrhi::ICommandList* _commandList )
 		thisCmdList = commandList;
 		thisCmdList->open();
 	}
+	*/
 
 	for( int i = 0; i < globalImages->imagesToLoad.Num(); i++ )
 	{
@@ -1047,11 +1048,13 @@ void idImageManager::LoadDeferredImages( nvrhi::ICommandList* _commandList )
 		globalImages->imagesToLoad[i]->FinalizeImage( false, _commandList );
 	}
 
+	/*
 	if( !_commandList )
 	{
 		thisCmdList->close();
 		deviceManager->GetDevice()->executeCommandList( thisCmdList );
 	}
+	*/
 
 	globalImages->imagesToLoad.Clear();
 }
