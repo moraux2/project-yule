@@ -3450,11 +3450,11 @@ void idRenderBackend::ShadowMapPassPerforated( const drawSurf_t** drawSurfs, int
 		{
 			if( drawSurf->jointCache )
 			{
-				renderProgManager.BindShader_DepthSkinned();
+				renderProgManager.BindShader_ShadowMapDepthSkinned();
 			}
 			else
 			{
-				renderProgManager.BindShader_Depth();
+				renderProgManager.BindShader_ShadowMapDepth();
 			}
 
 			DrawElementsWithCounters( drawSurf );
@@ -3665,11 +3665,11 @@ void idRenderBackend::ShadowMapPassFast( const drawSurf_t* drawSurfs, viewLight_
 
 		if( drawSurf->jointCache )
 		{
-			renderProgManager.BindShader_DepthSkinned();
+			renderProgManager.BindShader_ShadowMapDepthSkinned();
 		}
 		else
 		{
-			renderProgManager.BindShader_Depth();
+			renderProgManager.BindShader_ShadowMapDepth();
 		}
 
 		// must render with less-equal for Z-Cull to work properly
@@ -3965,11 +3965,11 @@ void idRenderBackend::ShadowMapPassOld( const drawSurf_t* drawSurfs, viewLight_t
 		{
 			if( drawSurf->jointCache )
 			{
-				renderProgManager.BindShader_DepthSkinned();
+				renderProgManager.BindShader_ShadowMapDepthSkinned();
 			}
 			else
 			{
-				renderProgManager.BindShader_Depth();
+				renderProgManager.BindShader_ShadowMapDepth();
 			}
 
 			DrawElementsWithCounters( drawSurf );
@@ -7179,7 +7179,7 @@ void idRenderBackend::DrawView( const void* data, const int stereoEye )
 	// render the scene
 	DrawViewInternal( cmd->viewDef, stereoEye );
 
-	MotionBlur();
+	//MotionBlur();
 
 	// optionally draw a box colored based on the eye number
 	if( r_drawEyeColor.GetBool() )

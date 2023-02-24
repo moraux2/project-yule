@@ -1032,7 +1032,7 @@ void idRenderBackend::GetCurrentBindingLayout( int type )
 			{
 				nvrhi::BindingSetItem::Sampler( 0, commonPasses.m_AnisotropicWrapSampler ),
 				nvrhi::BindingSetItem::Sampler( 1, commonPasses.m_LinearBorderSampler ),
-				nvrhi::BindingSetItem::Sampler( 2, commonPasses.m_LinearClampCompareSampler ),
+				nvrhi::BindingSetItem::Sampler( 2, commonPasses.m_LinearClampSampler ),
 				nvrhi::BindingSetItem::Sampler( 3, commonPasses.m_PointWrapSampler )  // blue noise
 			};
 		}
@@ -1041,7 +1041,7 @@ void idRenderBackend::GetCurrentBindingLayout( int type )
 			auto& bindings = desc[3].bindings;
 			bindings[0].resourceHandle = commonPasses.m_AnisotropicWrapSampler;
 			bindings[1].resourceHandle = commonPasses.m_LinearBorderSampler;
-			bindings[2].resourceHandle = commonPasses.m_LinearClampCompareSampler;
+			bindings[2].resourceHandle = commonPasses.m_LinearClampSampler;
 			bindings[3].resourceHandle = commonPasses.m_PointWrapSampler;
 		}
 	}
@@ -1112,7 +1112,7 @@ void idRenderBackend::GetCurrentBindingLayout( int type )
 			{
 				nvrhi::BindingSetItem::Sampler( 0, commonPasses.m_AnisotropicWrapSampler ),
 				nvrhi::BindingSetItem::Sampler( 1, commonPasses.m_LinearBorderSampler ),
-				nvrhi::BindingSetItem::Sampler( 2, commonPasses.m_LinearClampCompareSampler ),
+				nvrhi::BindingSetItem::Sampler( 2, commonPasses.m_LinearClampSampler ),
 				nvrhi::BindingSetItem::Sampler( 3, commonPasses.m_PointWrapSampler )  // blue noise
 			};
 		}
@@ -1121,7 +1121,7 @@ void idRenderBackend::GetCurrentBindingLayout( int type )
 			auto& bindings = desc[3].bindings;
 			bindings[0].resourceHandle = commonPasses.m_AnisotropicWrapSampler;
 			bindings[1].resourceHandle = commonPasses.m_LinearBorderSampler;
-			bindings[2].resourceHandle = commonPasses.m_LinearClampCompareSampler;
+			bindings[2].resourceHandle = commonPasses.m_LinearClampSampler;
 			bindings[3].resourceHandle = commonPasses.m_PointWrapSampler;
 		}
 	}

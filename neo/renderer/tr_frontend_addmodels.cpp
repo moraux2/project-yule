@@ -1148,7 +1148,7 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 					}
 				}
 
-
+				// skip all stencil shadows below
 				continue;
 			}
 			// RB end

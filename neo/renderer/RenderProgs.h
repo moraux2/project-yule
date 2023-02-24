@@ -359,6 +359,8 @@ enum
 
 	BUILTIN_DEPTH,
 	BUILTIN_DEPTH_SKINNED,
+	BUILTIN_SHADOWMAP_DEPTH,
+	BUILTIN_SHADOWMAP_DEPTH_SKINNED,
 	BUILTIN_SHADOW,
 	BUILTIN_SHADOW_SKINNED,
 	BUILTIN_SHADOW_DEBUG,
@@ -778,6 +780,16 @@ public:
 	void	BindShader_DepthSkinned()
 	{
 		BindShader_Builtin( BUILTIN_DEPTH_SKINNED );
+	}
+
+	void	BindShader_ShadowMapDepth()
+	{
+		BindShader_Builtin( BUILTIN_SHADOWMAP_DEPTH );
+	}
+
+	void	BindShader_ShadowMapDepthSkinned()
+	{
+		BindShader_Builtin( BUILTIN_SHADOWMAP_DEPTH_SKINNED );
 	}
 
 	void	BindShader_Shadow()
