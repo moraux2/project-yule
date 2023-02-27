@@ -120,7 +120,9 @@ function(compile_shaders)
         if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             set(PARALLEL_SHADERS "")
         else()
-            set(PARALLEL_SHADERS "--parallel")
+            # set(PARALLEL_SHADERS "--parallel")
+			# RB - parallel compiling also fails with the latest Vulkan SDK on Windows ...
+			set(PARALLEL_SHADERS "")
         endif()
 
         add_custom_command(TARGET ${params_TARGET} PRE_BUILD

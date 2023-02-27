@@ -105,7 +105,7 @@ protected:
 	}
 
 	void BeginFrame() override;
-	void EndFrame() override;
+	void EndFrame() override; // RB: added for special BFG behaviour
 	void Present() override;
 
 	const char* GetRendererString() const override
@@ -275,6 +275,8 @@ private:
 	std::queue<nvrhi::EventQueryHandle> m_FramesInFlight;
 	std::vector<nvrhi::EventQueryHandle> m_QueryPool;
 
+	bool m_BufferDeviceAddressSupported = false;
+
 	// SRS - flag indicating support for eFifoRelaxed surface presentation (r_swapInterval = 1) mode
 	bool enablePModeFifoRelaxed = false;
 
@@ -325,6 +327,7 @@ private:
 
 		return VK_FALSE;
 	}
+
 };
 
 static std::vector<const char*> stringSetToVector( const std::unordered_set<std::string>& set )
@@ -729,13 +732,16 @@ bool DeviceManager_VK::createDevice()
 		}
 	}
 
+	const vk::PhysicalDeviceProperties physicalDeviceProperties = m_VulkanPhysicalDevice.getProperties();
+	m_RendererString = std::string( physicalDeviceProperties.deviceName.data() );
+
 	bool accelStructSupported = false;
 	bool bufferAddressSupported = false;
 	bool rayPipelineSupported = false;
 	bool rayQuerySupported = false;
 	bool meshletsSupported = false;
 	bool vrsSupported = false;
-	bool sync2Supported = false;
+	bool synchronization2Supported = false;
 
 	common->Printf( "Enabled Vulkan device extensions:\n" );
 	for( const auto& ext : enabledExtensions.device )
@@ -748,7 +754,6 @@ bool DeviceManager_VK::createDevice()
 		}
 		else if( ext == VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME )
 		{
-			// RB: only makes problems at the moment
 			bufferAddressSupported = true;
 		}
 		else if( ext == VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME )
@@ -769,7 +774,7 @@ bool DeviceManager_VK::createDevice()
 		}
 		else if( ext == VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME )
 		{
-			sync2Supported = true;
+			synchronization2Supported = true;
 		}
 	}
 
@@ -815,9 +820,11 @@ bool DeviceManager_VK::createDevice()
 					   .setPipelineFragmentShadingRate( true )
 					   .setPrimitiveFragmentShadingRate( true )
 					   .setAttachmentFragmentShadingRate( true );
+	auto vulkan13features = vk::PhysicalDeviceVulkan13Features()
+							.setSynchronization2( synchronization2Supported );
 
-	auto sync2Features = vk::PhysicalDeviceSynchronization2FeaturesKHR()
-						 .setSynchronization2( true );
+	//auto sync2Features = vk::PhysicalDeviceSynchronization2FeaturesKHR()
+	//					 .setSynchronization2( true );
 
 #if defined(__APPLE__) && defined( VK_KHR_portability_subset )
 	auto portabilityFeatures = vk::PhysicalDevicePortabilitySubsetFeaturesKHR()
@@ -834,7 +841,8 @@ bool DeviceManager_VK::createDevice()
 	APPEND_EXTENSION( rayQuerySupported, rayQueryFeatures )
 	APPEND_EXTENSION( meshletsSupported, meshletFeatures )
 	APPEND_EXTENSION( vrsSupported, vrsFeatures )
-	APPEND_EXTENSION( sync2Supported, sync2Features )
+	//APPEND_EXTENSION( synchronization2Supported, sync2Features )
+	APPEND_EXTENSION( physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_3, vulkan13features )
 #undef APPEND_EXTENSION
 
 	auto deviceFeatures = vk::PhysicalDeviceFeatures()
@@ -892,6 +900,9 @@ bool DeviceManager_VK::createDevice()
 	m_VulkanDevice.getQueue( m_PresentQueueFamily, 0, &m_PresentQueue );
 
 	VULKAN_HPP_DEFAULT_DISPATCHER.init( m_VulkanDevice );
+
+	// remember the bufferDeviceAddress feature enablement
+	m_BufferDeviceAddressSupported = vulkan12features.bufferDeviceAddress;
 
 	// SRS - Determine if preferred image depth/stencil format D24S8 is supported (issue with Vulkan on AMD GPUs)
 	vk::ImageFormatProperties imageFormatProperties;
@@ -1168,6 +1179,7 @@ bool DeviceManager_VK::CreateDeviceAndSwapChain()
 	deviceDesc.numInstanceExtensions = vecInstanceExt.size();
 	deviceDesc.deviceExtensions = vecDeviceExt.data();
 	deviceDesc.numDeviceExtensions = vecDeviceExt.size();
+	deviceDesc.bufferDeviceAddressSupported = m_BufferDeviceAddressSupported;
 
 	m_NvrhiDevice = nvrhi::vulkan::createDevice( deviceDesc );
 
