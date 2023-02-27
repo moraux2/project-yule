@@ -820,11 +820,11 @@ bool DeviceManager_VK::createDevice()
 					   .setPipelineFragmentShadingRate( true )
 					   .setPrimitiveFragmentShadingRate( true )
 					   .setAttachmentFragmentShadingRate( true );
-	auto vulkan13features = vk::PhysicalDeviceVulkan13Features()
-							.setSynchronization2( synchronization2Supported );
+	//auto vulkan13features = vk::PhysicalDeviceVulkan13Features()
+	//						.setSynchronization2( synchronization2Supported );
 
-	//auto sync2Features = vk::PhysicalDeviceSynchronization2FeaturesKHR()
-	//					 .setSynchronization2( true );
+	auto sync2Features = vk::PhysicalDeviceSynchronization2FeaturesKHR()
+						 .setSynchronization2( true );
 
 #if defined(__APPLE__) && defined( VK_KHR_portability_subset )
 	auto portabilityFeatures = vk::PhysicalDevicePortabilitySubsetFeaturesKHR()
@@ -841,8 +841,8 @@ bool DeviceManager_VK::createDevice()
 	APPEND_EXTENSION( rayQuerySupported, rayQueryFeatures )
 	APPEND_EXTENSION( meshletsSupported, meshletFeatures )
 	APPEND_EXTENSION( vrsSupported, vrsFeatures )
-	//APPEND_EXTENSION( synchronization2Supported, sync2Features )
-	APPEND_EXTENSION( physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_3, vulkan13features )
+	APPEND_EXTENSION( synchronization2Supported, sync2Features )
+	//APPEND_EXTENSION( physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_3, vulkan13features )
 #undef APPEND_EXTENSION
 
 	auto deviceFeatures = vk::PhysicalDeviceFeatures()
