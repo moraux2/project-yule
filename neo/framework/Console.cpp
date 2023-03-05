@@ -301,7 +301,7 @@ float idConsoleLocal::DrawFPS( float y )
 
 	// SRS - Calculate max fps and max frame time based on glConfig.displayFrequency if vsync enabled and lower than engine Hz, otherwise use com_engineHz_latched
 	const int maxFPS = ( r_swapInterval.GetInteger() > 0 && glConfig.displayFrequency > 0 ? std::min( glConfig.displayFrequency, int( com_engineHz_latched ) ) : com_engineHz_latched );
-	const int maxTime = 1000.0 / maxFPS * 1000;
+	const int maxTime = ( 1000.0 / maxFPS ) * 1050; // slight 5% tolerance offset to avoid flickering of the stats
 
 	// SRS - Frame idle and busy time calculations are based on direct frame-over-frame measurement relative to finishSyncTime
 	const int64 frameIdleTime = int64( commonLocal.mainFrameTiming.startGameTime ) - int64( commonLocal.mainFrameTiming.finishSyncTime );
@@ -320,12 +320,12 @@ float idConsoleLocal::DrawFPS( float y )
 	{
 		// start smaller
 		int32 statsWindowWidth = 320;
-		int32 statsWindowHeight = 295;
+		int32 statsWindowHeight = 315;
 
 		if( com_showFPS.GetInteger() > 2 )
 		{
 			statsWindowWidth += 230;
-			statsWindowHeight += 110;
+			statsWindowHeight += 105;
 		}
 
 		ImVec2 pos;
@@ -350,6 +350,7 @@ float idConsoleLocal::DrawFPS( float y )
 		static ImVec4 colorLtGrey	= ImVec4( 0.75f, 0.75f, 0.75f, 1.00f );
 		static ImVec4 colorMdGrey	= ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
 		static ImVec4 colorDkGrey	= ImVec4( 0.25f, 0.25f, 0.25f, 1.00f );
+		static ImVec4 colorGold		= ImVec4( 0.68f, 0.63f, 0.36f, 1.00f );
 
 		ImGui::Begin( "Performance Stats" );
 
@@ -430,6 +431,8 @@ float idConsoleLocal::DrawFPS( float y )
 		int height = renderSystem->GetHeight();
 
 		ImGui::TextColored( colorCyan, "API: %s, AA[%i, %i]: %s, %s", API, width, height, aaMode, resolutionText.c_str() );
+
+		ImGui::TextColored( colorGold, "Device: %s", deviceManager->GetRendererString() );
 
 		ImGui::TextColored( colorLtGrey, "GENERAL: views:%i draws:%i tris:%i (shdw:%i)",
 							commonLocal.stats_frontend.c_numViews,
