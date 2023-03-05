@@ -1825,7 +1825,7 @@ else()
 	endif()
 
 	if(USE_VULKAN)
-        add_dependencies(RBDoom3BFG nvrhi_vk)
+        add_dependencies(DoomIcedHellfire nvrhi_vk)
     endif()
 	if (USE_PRECOMPILED_HEADERS)
 		# make sure precompiled header is created before executable is compiled
@@ -1904,9 +1904,9 @@ if(USE_VULKAN)
 endif()
 
 if(OPTICK)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_OPTICK=1)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_OPTICK=1)
 else()
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_OPTICK=0)
+	target_compile_definitions(DoomIcedHellfire PUBLIC USE_OPTICK=0)
 endif()
 
 # needs to come after nvrhi_d3d11 etc. for link order

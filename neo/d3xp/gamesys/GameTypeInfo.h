@@ -791,12 +791,12 @@ static constantInfo_t constantInfo[] = {
 	{ "int", "idMenuScreen_Shell_Gamepad::idMenuDataSource_GamepadSettings::MAX_GAMEPAD_FIELDS", "7" },
 	{ "int", "idMenuScreen_Shell_ControllerLayout::idMenuDataSource_LayoutSettings::LAYOUT_FIELD_LAYOUT", "0" },
 	{ "int", "idMenuScreen_Shell_ControllerLayout::idMenuDataSource_LayoutSettings::MAX_LAYOUT_FIELDS", "1" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_FULLSCREEN", "0" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_FRAMERATE", "1" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_VSYNC", "2" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_ANTIALIASING", "3" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_POSTFX", "4" },
-	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_SHADOWMAPPING", "5" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_RENDERAPI", "0" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_FULLSCREEN", "1" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_FRAMERATE", "2" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_VSYNC", "3" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_ANTIALIASING", "4" },
+	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_POSTFX", "5" },
 	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_SSAO", "6" },
 	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_AMBIENT_BRIGHTNESS", "7" },
 	{ "int", "idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings::SYSTEM_FIELD_BRIGHTNESS", "8" },
@@ -1996,12 +1996,12 @@ static enumValueInfo_t idMenuScreen_Shell_ControllerLayout_idMenuDataSource_Layo
 };
 
 static enumValueInfo_t idMenuScreen_Shell_SystemOptions_idMenuDataSource_SystemSettings_systemSettingFields_t_typeInfo[] = {
-	{ "SYSTEM_FIELD_FULLSCREEN", 0 },
-	{ "SYSTEM_FIELD_FRAMERATE", 1 },
-	{ "SYSTEM_FIELD_VSYNC", 2 },
-	{ "SYSTEM_FIELD_ANTIALIASING", 3 },
-	{ "SYSTEM_FIELD_POSTFX", 4 },
-	{ "SYSTEM_FIELD_SHADOWMAPPING", 5 },
+	{ "SYSTEM_FIELD_RENDERAPI", 0 },
+	{ "SYSTEM_FIELD_FULLSCREEN", 1 },
+	{ "SYSTEM_FIELD_FRAMERATE", 2 },
+	{ "SYSTEM_FIELD_VSYNC", 3 },
+	{ "SYSTEM_FIELD_ANTIALIASING", 4 },
+	{ "SYSTEM_FIELD_POSTFX", 5 },
 	{ "SYSTEM_FIELD_SSAO", 6 },
 	{ "SYSTEM_FIELD_AMBIENT_BRIGHTNESS", 7 },
 	{ "SYSTEM_FIELD_BRIGHTNESS", 8 },
@@ -7067,7 +7067,8 @@ static classVariableInfo_t idMenuScreen_Shell_ControllerLayout_typeInfo[] = {
 };
 
 static classVariableInfo_t idMenuScreen_Shell_SystemOptions_idMenuDataSource_SystemSettings_typeInfo[] = {
-	{ ": int", "originalFramerate", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalFramerate), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalFramerate ) },
+	{ ": idStr", "originalRenderAPI", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalRenderAPI), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalRenderAPI ) },
+	{ "int", "originalFramerate", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalFramerate), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalFramerate ) },
 	{ "int", "originalAntialias", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalAntialias), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalAntialias ) },
 	{ "int", "originalVsync", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalVsync), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalVsync ) },
 	{ "float", "originalBrightness", (intptr_t)(&((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalBrightness), sizeof( ((idMenuScreen_Shell_SystemOptions::idMenuDataSource_SystemSettings *)0)->originalBrightness ) },
