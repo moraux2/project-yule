@@ -281,6 +281,7 @@ public:
 #include "bv/Sphere.h"
 #include "bv/Bounds.h"
 #include "bv/Box.h"
+#include "bv/BoxOctree.h"
 
 // geometry
 #include "geometry/RenderMatrix.h"
@@ -318,6 +319,7 @@ public:
 #include "containers/StrPool.h"
 #include "containers/VectorSet.h"
 #include "containers/PlaneSet.h"
+#include "containers/FlexList.h"
 
 // hashing
 #include "hashing/CRC32.h"

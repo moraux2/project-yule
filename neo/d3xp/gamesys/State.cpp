@@ -324,6 +324,13 @@ stateResult_t rvStateThread::Execute()
 			}
 		}
 
+		if( !owner )
+		{
+			call->node.Remove();
+			delete call;
+			continue;
+		}
+
 		// Actually call the state function
 		lastResult = ( stateResult_t )owner->Invoke( call->state, &call->parms );
 		switch( lastResult )

@@ -993,6 +993,7 @@ void idAI::Spawn()
 	if( supportsNative )
 	{
 		stateThread.SetOwner( this );
+
 		Init();
 
 		isAwake = false;
@@ -3337,6 +3338,7 @@ void idAI::TriggerWeaponEffects( const idVec3& muzzle )
 
 		if( worldMuzzleFlash.lightRadius.x > 0.0f )
 		{
+			worldMuzzleFlash.origin = org;
 			worldMuzzleFlash.axis = axis;
 			worldMuzzleFlash.shaderParms[SHADERPARM_TIMEOFFSET] = -MS2SEC( gameLocal.time );
 			if( worldMuzzleFlashHandle != - 1 )
@@ -3370,7 +3372,6 @@ void idAI::UpdateMuzzleFlash()
 		else
 		{
 			idVec3 muzzle;
-			animator.GetJointTransform( flashJointWorld, gameLocal.time, muzzle, worldMuzzleFlash.axis );
 			animator.GetJointTransform( flashJointWorld, gameLocal.time, muzzle, worldMuzzleFlash.axis );
 			muzzle = physicsObj.GetOrigin() + ( muzzle + modelOffset ) * viewAxis * physicsObj.GetGravityAxis();
 			worldMuzzleFlash.origin = muzzle;

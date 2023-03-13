@@ -92,6 +92,8 @@ private:
 	idActor* 				self;
 	idAnimator* 			animator;
 	idThread* 				thread;
+	rvStateThread			stateThread;
+
 	int						channel;
 	bool					disabled;
 };
@@ -218,6 +220,7 @@ public:
 		return head.GetEntity();
 	};
 
+	idActor*				NextEnemy( idEntity* ent );
 protected:
 	friend class			idAnimState;
 

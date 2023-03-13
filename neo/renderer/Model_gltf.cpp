@@ -420,24 +420,21 @@ void idRenderModelGLTF::InitFromFile( const char* fileName, const idImportOption
 				bones.Append( currentSkin->joints );
 				animCount = data->GetAnimationIds( nodes[bones[0]] , animIds );
 			}
-
 			if( localOptions )
 			{
 				if( localOptions->keepjoints.Num() )
 				{
 					KeepNodes( data, localOptions->keepjoints, bones );
 				}
-
 				if( localOptions->addOrigin )
 				{
+
 					AddOriginBone( data, bones, nodes[bones[0]]->parent );
 				}
-
 				if( localOptions->remapjoints.Num() )
 				{
 					RemapNodes( data, localOptions->remapjoints, bones );
 				}
-
 				if( localOptions->renamejoints.Num() )
 				{
 					RenameNodes( data, localOptions->renamejoints, bones );
@@ -812,6 +809,7 @@ static idList<idJointQuat> GetPose( idList<gltfNode>& bones, idJointMat* poseMat
 
 		if( node->parent == nullptr )
 		{
+			//node->matrix *= blenderToDoomTransform;
 			node->matrix *= globalTransform;
 			trans = node->matrix;
 		}
@@ -877,8 +875,7 @@ static int CopyBones( gltfData* data, const idList<int>& bones, idList<gltfNode>
 idFile_Memory* idRenderModelGLTF::GetAnimBin( const idStr& animName, const ID_TIME_T sourceTimeStamp, const idImportOptions* options )
 {
 	assert( lastMeshFromFile );
-
-	//keep in sync with game!
+	///keep in sync with game!
 	static const byte B_ANIM_MD5_VERSION = 101;
 	static const unsigned int B_ANIM_MD5_MAGIC = ( 'B' << 24 ) | ( 'M' << 16 ) | ( 'D' << 8 ) | B_ANIM_MD5_VERSION;
 

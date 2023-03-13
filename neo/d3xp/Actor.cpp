@@ -137,6 +137,8 @@ void idAnimState::Init( idActor* owner, idAnimator* _animator, int animchannel )
 	}
 	thread->EndThread();
 	thread->ManualControl();
+
+	stateThread.SetOwner( owner );
 }
 
 /*
@@ -157,10 +159,12 @@ idAnimState::SetState
 */
 void idAnimState::SetState( const char* statename, int blendFrames )
 {
+	bool hasNative = self->HasNativeFunction( statename );
+
 	const function_t* func;
 
 	func = self->scriptObject.GetFunction( statename );
-	if( !func )
+	if( !func && !hasNative )
 	{
 		assert( 0 );
 		gameLocal.Error( "Can't find function '%s' in object '%s'", statename, self->scriptObject.GetTypeName() );
@@ -170,7 +174,14 @@ void idAnimState::SetState( const char* statename, int blendFrames )
 	disabled = false;
 	animBlendFrames = blendFrames;
 	lastAnimBlendFrames = blendFrames;
-	thread->CallFunction( self, func, true );
+	if( !hasNative )
+	{
+		thread->CallFunction( self, func, true );
+	}
+	else
+	{
+		stateThread.SetState( statename, animBlendFrames );
+	}
 
 	animBlendFrames = blendFrames;
 	lastAnimBlendFrames = blendFrames;
@@ -346,7 +357,15 @@ bool idAnimState::UpdateState()
 		thread->DisableDebugInfo();
 	}
 
-	thread->Execute();
+	bool hasNative = self->HasNativeFunction( state );
+	if( !hasNative )
+	{
+		thread->Execute();
+	}
+	else
+	{
+		stateThread.Execute();
+	}
 
 	return true;
 }
@@ -3920,7 +3939,16 @@ idActor::Event_NextEnemy
 */
 void idActor::Event_NextEnemy( idEntity* ent )
 {
-	idActor* actor;
+	idThread::ReturnEntity( NextEnemy( ent ) );
+}
+/*
+================
+idActor::NextEnemy
+================
+*/
+idActor* idActor::NextEnemy( idEntity* ent )
+{
+	idActor* actor = NULL;
 
 	if( !ent || ( ent == this ) )
 	{
@@ -3944,12 +3972,11 @@ void idActor::Event_NextEnemy( idEntity* ent )
 	{
 		if( !actor->fl.hidden )
 		{
-			idThread::ReturnEntity( actor );
-			return;
+			return actor;
 		}
 	}
 
-	idThread::ReturnEntity( NULL );
+	return NULL;
 }
 
 /*
