@@ -1008,9 +1008,7 @@ public:
 public:
 	// renderer globals
 
-#if defined( USE_NVRHI )
 	nvrhi::CommandListHandle commandList;
-#endif
 
 	bool					registered;		// cleared at shutdown, set at InitOpenGL
 
@@ -1104,9 +1102,7 @@ extern idCVar r_windowWidth;
 extern idCVar r_windowHeight;
 
 extern idCVar r_debugContext;				// enable various levels of context debug
-#if defined(USE_NVRHI)
-	extern idCVar r_useValidationLayers;
-#endif
+extern idCVar r_useValidationLayers;
 extern idCVar r_skipAMDWorkarounds;         // skip work arounds for AMD driver bugs
 extern idCVar r_skipIntelWorkarounds;		// skip work arounds for Intel driver bugs
 extern idCVar r_vidMode;					// video mode number
@@ -1167,7 +1163,6 @@ extern idCVar r_skipFrontEnd;				// bypasses all front end work, but 2D gui rend
 extern idCVar r_skipBackEnd;				// don't draw anything
 extern idCVar r_skipCopyTexture;			// do all rendering, but don't actually copyTexSubImage2D
 extern idCVar r_skipRender;					// skip 3D rendering, but pass 2D
-extern idCVar r_skipRenderContext;			// NULL the rendering context during backend 3D rendering
 extern idCVar r_skipTranslucent;			// skip the translucent interaction rendering
 extern idCVar r_skipAmbient;				// bypasses all non-interaction drawing
 extern idCVar r_skipNewAmbient;				// bypasses all vertex/fragment program ambients
@@ -1289,10 +1284,6 @@ extern idCVar r_ldrContrastOffset;
 extern idCVar r_useFilmicPostProcessing;
 extern idCVar r_forceAmbient;
 
-extern idCVar r_useSSGI;
-extern idCVar r_ssgiDebug;
-extern idCVar r_ssgiFiltering;
-
 extern idCVar r_useSSAO;
 extern idCVar r_ssaoDebug;
 extern idCVar r_ssaoFiltering;
@@ -1403,10 +1394,6 @@ struct glimpParms_t
 #define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 // Helper function for using SDL2 and Vulkan on Linux.
 std::vector<const char*> get_required_extensions();
-
-#if !defined( USE_NVRHI )
-	extern vulkanContext_t vkcontext;
-#endif
 
 // DG: R_GetModeListForDisplay is called before GLimp_Init(), but SDL needs SDL_Init() first.
 // So add PreInit for platforms that need it, others can just stub it.
