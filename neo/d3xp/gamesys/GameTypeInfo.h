@@ -9,7 +9,7 @@
 
 	959 constants
 	92 enums
-	474 classes/structs/unions
+	475 classes/structs/unions
 	3 templates
 	8 max inheritance level for 'iceMonsterZombieSawyer'
 
@@ -2677,6 +2677,8 @@ static classVariableInfo_t idDeclModelDef_typeInfo[] = {
 	{ "idRenderModel *", "modelHandle", (intptr_t)(&((idDeclModelDef *)0)->modelHandle), sizeof( ((idDeclModelDef *)0)->modelHandle ) },
 	{ "idList < idAnim * , TAG_ANIM >", "anims", (intptr_t)(&((idDeclModelDef *)0)->anims), sizeof( ((idDeclModelDef *)0)->anims ) },
 	{ "const idDeclSkin *", "skin", (intptr_t)(&((idDeclModelDef *)0)->skin), sizeof( ((idDeclModelDef *)0)->skin ) },
+	{ "bool", "hasCustomRotationSet", (intptr_t)(&((idDeclModelDef *)0)->hasCustomRotationSet), sizeof( ((idDeclModelDef *)0)->hasCustomRotationSet ) },
+	{ "idAngles", "originalRotation", (intptr_t)(&((idDeclModelDef *)0)->originalRotation), sizeof( ((idDeclModelDef *)0)->originalRotation ) },
 	{ NULL, 0 }
 };
 
@@ -4304,6 +4306,7 @@ static classVariableInfo_t idAnimState_typeInfo[] = {
 	{ ": idActor *", "self", (intptr_t)(&((idAnimState *)0)->self), sizeof( ((idAnimState *)0)->self ) },
 	{ "idAnimator *", "animator", (intptr_t)(&((idAnimState *)0)->animator), sizeof( ((idAnimState *)0)->animator ) },
 	{ "idThread *", "thread", (intptr_t)(&((idAnimState *)0)->thread), sizeof( ((idAnimState *)0)->thread ) },
+	{ "rvStateThread", "stateThread", (intptr_t)(&((idAnimState *)0)->stateThread), sizeof( ((idAnimState *)0)->stateThread ) },
 	{ "int", "channel", (intptr_t)(&((idAnimState *)0)->channel), sizeof( ((idAnimState *)0)->channel ) },
 	{ "bool", "disabled", (intptr_t)(&((idAnimState *)0)->disabled), sizeof( ((idAnimState *)0)->disabled ) },
 	{ NULL, 0 }
@@ -6082,6 +6085,19 @@ static classVariableInfo_t iceMonsterZombieCommandoChaingun_typeInfo[] = {
 	{ NULL, 0 }
 };
 
+static classVariableInfo_t iceMonster_Turret_typeInfo[] = {
+	{ "boolean", "fire", (intptr_t)(&((iceMonster_Turret *)0)->fire), sizeof( ((iceMonster_Turret *)0)->fire ) },
+	{ "boolean", "attack_monsters", (intptr_t)(&((iceMonster_Turret *)0)->attack_monsters), sizeof( ((iceMonster_Turret *)0)->attack_monsters ) },
+	{ "idEntity", "light", (intptr_t)(&((iceMonster_Turret *)0)->light), sizeof( ((iceMonster_Turret *)0)->light ) },
+	{ "boolean", "light_is_on", (intptr_t)(&((iceMonster_Turret *)0)->light_is_on), sizeof( ((iceMonster_Turret *)0)->light_is_on ) },
+	{ "float", "attackTime", (intptr_t)(&((iceMonster_Turret *)0)->attackTime), sizeof( ((iceMonster_Turret *)0)->attackTime ) },
+	{ "int", "barrelCount", (intptr_t)(&((iceMonster_Turret *)0)->barrelCount), sizeof( ((iceMonster_Turret *)0)->barrelCount ) },
+	{ "int", "currentBarrel", (intptr_t)(&((iceMonster_Turret *)0)->currentBarrel), sizeof( ((iceMonster_Turret *)0)->currentBarrel ) },
+	{ "idStr", "currentBarrelStr", (intptr_t)(&((iceMonster_Turret *)0)->currentBarrelStr), sizeof( ((iceMonster_Turret *)0)->currentBarrelStr ) },
+	{ "idList < jointHandle_t >", "flashJointWorldHandles", (intptr_t)(&((iceMonster_Turret *)0)->flashJointWorldHandles), sizeof( ((iceMonster_Turret *)0)->flashJointWorldHandles ) },
+	{ NULL, 0 }
+};
+
 static classVariableInfo_t fuzzyseperator_t_typeInfo[] = {
 	{ "bool", "inUse", (intptr_t)(&((fuzzyseperator_t *)0)->inUse), sizeof( ((fuzzyseperator_t *)0)->inUse ) },
 	{ "int", "index", (intptr_t)(&((fuzzyseperator_t *)0)->index), sizeof( ((fuzzyseperator_t *)0)->index ) },
@@ -7723,6 +7739,7 @@ static classTypeInfo_t classTypeInfo[] = {
 	{ "iceMonsterZombieSecurityPistol", "iceMonsterZombie", sizeof(iceMonsterZombieSecurityPistol), iceMonsterZombieSecurityPistol_typeInfo },
 	{ "iceMonsterZombieCommandoTentacle", "iceMonsterZombie", sizeof(iceMonsterZombieCommandoTentacle), iceMonsterZombieCommandoTentacle_typeInfo },
 	{ "iceMonsterZombieCommandoChaingun", "idAI", sizeof(iceMonsterZombieCommandoChaingun), iceMonsterZombieCommandoChaingun_typeInfo },
+	{ "iceMonster_Turret", "idAI", sizeof(iceMonster_Turret), iceMonster_Turret_typeInfo },
 	{ "fuzzyseperator_t", "", sizeof(fuzzyseperator_t), fuzzyseperator_t_typeInfo },
 	{ "weight_t", "", sizeof(weight_t), weight_t_typeInfo },
 	{ "weightconfig_t", "", sizeof(weightconfig_t), weightconfig_t_typeInfo },
