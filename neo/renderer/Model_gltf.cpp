@@ -932,12 +932,12 @@ idFile_Memory* idRenderModelGLTF::GetAnimBin( const idStr& animName, const ID_TI
 		rootID = lastMeshFromFile->rootID;
 		gltfNode* nodeRoot = nullptr;
 
-		if (rootID != -1 )
+		if( rootID != -1 )
 		{
 			nodeRoot = nodes[rootID];
 		}
 
-		if (nodeRoot != nullptr && nodeRoot->skin > -1)
+		if( nodeRoot != nullptr && nodeRoot->skin > -1 )
 		{
 			rootID = nodes[data->SkinList()[nodeRoot->skin]->skeleton]->children[0];
 		}
