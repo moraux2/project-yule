@@ -32,8 +32,8 @@ If you have questions concerning this license or the applicable additional terms
 
 
 #include <nvrhi/nvrhi.h>
-	#include "DescriptorTableManager.h"
-	
+#include "DescriptorTableManager.h"
+
 #if defined( USE_AMD_ALLOCATOR )
 	#include <nvrhi/vulkan.h>
 	#include "vk_mem_alloc.h"

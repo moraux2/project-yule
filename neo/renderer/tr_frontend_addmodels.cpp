@@ -794,10 +794,10 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 			continue;
 		}
 
-	/*	if( idStr::Icmp( shader->GetName(), "models/characters/player/arm2" ) == 0 )
-		{
-			common->Warning( "hi" );
-		}*/
+		/*	if( idStr::Icmp( shader->GetName(), "models/characters/player/arm2" ) == 0 )
+			{
+				common->Warning( "hi" );
+			}*/
 
 		// motorsep 11-24-2014; checking for LOD surface for LOD1 iteration
 		if( shader->IsLOD() )
@@ -933,10 +933,10 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 				tri->ambientCache = vertexCache.AllocVertex( tri->verts, tri->numVerts );
 			}
 
-				if( gpuSkinned )
-				{
-					skinnedCache = vertexCache.AllocFrameSkinnedVertex( tri->numVerts * sizeof( idDrawVert ) );
-				}
+			if( gpuSkinned )
+			{
+				skinnedCache = vertexCache.AllocFrameSkinnedVertex( tri->numVerts * sizeof( idDrawVert ) );
+			}
 
 			// add the surface for drawing
 			// we can re-use some of the values for light interaction surfaces
@@ -985,7 +985,7 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 
 				R_SetupDrawSurfJoints( baseDrawSurf, tri, shader );
 
-					baseDrawSurf->skinnedCache = skinnedCache;
+				baseDrawSurf->skinnedCache = skinnedCache;
 				baseDrawSurf->numIndexes = tri->numIndexes;
 				baseDrawSurf->ambientCache = tri->ambientCache;
 				baseDrawSurf->indexCache = tri->indexCache;
@@ -1221,13 +1221,13 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 						tri->ambientCache = vertexCache.AllocVertex( tri->verts, tri->numVerts );
 					}
 
-						if( gpuSkinned && !skinnedCache )
-						{
-							skinnedCache = vertexCache.AllocFrameSkinnedVertex( tri->numVerts * sizeof( idDrawVert ) );
-						}
+					if( gpuSkinned && !skinnedCache )
+					{
+						skinnedCache = vertexCache.AllocFrameSkinnedVertex( tri->numVerts * sizeof( idDrawVert ) );
+					}
 
 					shadowDrawSurf->ambientCache = tri->ambientCache;
-						shadowDrawSurf->skinnedCache = skinnedCache;
+					shadowDrawSurf->skinnedCache = skinnedCache;
 					shadowDrawSurf->frontEndGeo = tri;
 					shadowDrawSurf->space = vEntity;
 					shadowDrawSurf->material = shader;
@@ -1255,12 +1255,6 @@ void R_AddSingleModel( viewEntity_t* vEntity )
 				}
 			}
 			// RB end
-			if( gpuSkinned && !skinnedCache )
-			{
-				skinnedCache = vertexCache.AllocFrameSkinnedVertex( tri->numVerts * sizeof( idDrawVert ) );
-			}
-
-			shadowDrawSurf->skinnedCache = skinnedCache;
 		}
 	}
 }

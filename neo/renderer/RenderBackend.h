@@ -35,15 +35,15 @@ If you have questions concerning this license or the applicable additional terms
 #include "RenderLog.h"
 
 #include "Passes/CommonPasses.h"
-	#include "Passes/DepthPass.h"
+#include "Passes/DepthPass.h"
 #include "Passes/MipMapGenPass.h"
 #include "Passes/FowardShadingPass.h"
 #include "Passes/SsaoPass.h"
 #include "Passes/TonemapPass.h"
 #include "Passes/TemporalAntiAliasingPass.h"
 
-	#include "DescriptorTableManager.h"
-	#include "MaterialBindingCache.h"
+#include "DescriptorTableManager.h"
+#include "MaterialBindingCache.h"
 #include "PipelineCache.h"
 
 
@@ -139,7 +139,7 @@ struct SkinningConstants
 	uint inputJointMatOffset;
 	uint outputPositionOffset;
 	uint outputPrevPositionOffset;
-	
+
 	uint outputNormalOffset;
 	uint outputTangentOffset;
 	uint outputTexCoord1Offset;
@@ -244,7 +244,7 @@ private:
 	void				TemporalAAPass( const viewDef_t* _viewDef );
 
 	void				ComputeSkinnedMeshes( const viewDef_t* _viewDef );
-	
+
 	// RB: outdated HDR stuff
 	void				Bloom( const viewDef_t* viewDef );
 

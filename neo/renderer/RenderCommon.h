@@ -1110,7 +1110,6 @@ public:
 	{
 		return backend.FrontendCommandList();
 	}
-#else
 
 	bool					registered;		// cleared at shutdown, set at InitOpenGL
 

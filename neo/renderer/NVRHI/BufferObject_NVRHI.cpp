@@ -720,7 +720,7 @@ void* idIndexBuffer::MapBuffer( bufferMapType_t mapType )
 			accessMode = nvrhi::CpuAccessMode::Read;
 		}
 
-	buffer = deviceManager->GetDevice()->mapBuffer( bufferHandle, accessMode );
+		buffer = deviceManager->GetDevice()->mapBuffer( bufferHandle, accessMode );
 	}
 
 	SetMapped();

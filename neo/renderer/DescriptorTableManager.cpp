@@ -27,7 +27,7 @@
 DescriptorHandle::DescriptorHandle()
 	: manager( nullptr )
 	, index( -1 )
-{	
+{
 }
 
 DescriptorHandle::DescriptorHandle( DescriptorTableManager* managerPtr, DescriptorIndex index )

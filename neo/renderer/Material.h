@@ -945,9 +945,7 @@ public:
 		return distance >= m1 && ( distance < m2 || ( materialFlags & ( MF_LOD_PERSISTENT ) ) );
 	}
 
-#ifdef USE_NVRHI
 	int					GetBindlessTextureIndex( stageLighting_t lightingStage ) const;
-#endif
 
 private:
 	// parse the entire material

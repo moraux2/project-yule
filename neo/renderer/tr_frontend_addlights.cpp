@@ -509,7 +509,6 @@ static void R_AddSingleLight( viewLight_t* vLight )
 			vLight->shadowOnlyViewEntities = shadEnt;
 		}
 	}
-		shadowDrawSurf->skinnedCache = 0;
 }
 
 REGISTER_PARALLEL_JOB( R_AddSingleLight, "R_AddSingleLight" );

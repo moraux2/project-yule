@@ -254,7 +254,7 @@ void idRenderBackend::Init()
 			size_t maxBufferSize = ( size_t )( r_uploadBufferSizeMB.GetInteger() * 1024 * 1024 );
 			commandListParms.setUploadChunkSize( maxBufferSize );
 		}
-		
+
 		// SP - these command lists are run on the game/draw thread
 		commandLists[i] = deviceManager->GetDevice()->createCommandList( commandListParms );
 	}
@@ -391,7 +391,7 @@ void idRenderBackend::DrawElementsWithCounters( const drawSurf_t* surf )
 
 	if( currentVertexBuffer.Get() != vertexView.buffer || currentVertexOffset != vertexView.offset )
 	{
-		currentVertexBuffer = (nvrhi::IBuffer*)vertexView.buffer;
+		currentVertexBuffer = ( nvrhi::IBuffer* )vertexView.buffer;
 		currentVertexOffset = vertexView.offset;
 		changeState = true;
 	}
@@ -406,7 +406,7 @@ void idRenderBackend::DrawElementsWithCounters( const drawSurf_t* surf )
 
 	if( currentJointBuffer != jointBuffer.buffer || currentJointOffset != jointBuffer.offset )
 	{
-		currentJointBuffer = (nvrhi::IBuffer*)jointBuffer.buffer;
+		currentJointBuffer = ( nvrhi::IBuffer* )jointBuffer.buffer;
 		currentJointOffset = jointBuffer.offset;
 		changeState = true;
 	}

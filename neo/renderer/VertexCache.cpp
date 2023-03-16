@@ -179,11 +179,14 @@ static void AllocGeoBufferSet( geoBufferSet_t& gbs, BufferData bufferData, buffe
 	jointDesc.canHaveTypedViews = true;
 	jointDesc.keepInitialState = true;
 	jointDesc.initialState = nvrhi::ResourceStates::Common;
-	if( usage == BU_DYNAMIC ) {
+	if( usage == BU_DYNAMIC )
+	{
 		jointDesc.debugName = va( "Joint Buffer [Frame %d]", f );
 		jointDesc.cpuAccess = nvrhi::CpuAccessMode::Write;
 		gbs.jointStagingBuffer = new idStagingBuffer( deviceManager->GetDevice(), jointDesc );
-	} else if( bufferData.jointBytes > 0 ) {
+	}
+	else if( bufferData.jointBytes > 0 )
+	{
 		jointDesc.debugName = "Joint Buffer";
 		gbs.jointBuffer = new idTrackedBuffer( deviceManager->GetDevice(), jointDesc );
 	}
@@ -292,7 +295,7 @@ static void AllocGeoBufferSet( geoBufferSet_t& gbs, BufferData bufferData, buffe
 	{
 		skinnedDesc.debugName = "Skinned Buffer";
 		gbs.skinnedBuffer = new idTrackedBuffer( deviceManager->GetDevice(), skinnedDesc );
-		
+
 		skinnedDesc.debugName = "Static Skinned Buffer";
 		gbs.staticSkinnedBuffer = new idTrackedBuffer( deviceManager->GetDevice(), skinnedDesc );
 	}
@@ -910,7 +913,7 @@ idTrackedBuffer::idTrackedBuffer( nvrhi::DeviceHandle device, nvrhi::BufferDesc 
 
 	assert( tr.backend.descriptorTableManager );
 	bindlessHandle = tr.backend.descriptorTableManager->CreateDescriptorHandle(
-		nvrhi::BindingSetItem::RawBuffer_SRV( 0, buffer ) );
+						 nvrhi::BindingSetItem::RawBuffer_SRV( 0, buffer ) );
 }
 
 /*
