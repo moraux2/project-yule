@@ -3,7 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
-Copyright (C) 2012-2021 Robert Beckebans
+Copyright (C) 2012-2023 Robert Beckebans
 Copyright (C) 2014-2016 Kot in Action Creative Artel
 Copyright (C) 2022 Stephen Pridham
 
@@ -111,7 +111,7 @@ struct drawSurf_t
 	int						numIndexes;
 	vertCacheHandle_t		indexCache;			// triIndex_t
 	vertCacheHandle_t		ambientCache;		// idDrawVert
-	vertCacheHandle_t		shadowCache;		// idShadowVert / idShadowVertSkinned
+//	vertCacheHandle_t		shadowCache;		// idShadowVert / idShadowVertSkinned
 	vertCacheHandle_t		jointCache = 0;			// idJointMat
 	vertCacheHandle_t		skinnedCache = 0;		// idDrawVert - the skinned vertices
 	vertCacheHandle_t		matRegisterCache = 0;	// MaterialConstants
@@ -125,8 +125,6 @@ struct drawSurf_t
 	drawSurf_t* 			nextOnLight;		// viewLight chains
 	drawSurf_t** 			linkChain;			// defer linking to lights to a serial section to avoid a mutex
 	idScreenRect			scissorRect;		// for scissor clipping, local inside renderView viewport
-	int						renderZFail;
-	volatile shadowVolumeState_t shadowVolumeState;
 };
 
 // areas have references to hold all the lights and entities in them
@@ -399,6 +397,7 @@ struct viewLight_t
 	bool					parallel;					// lightCenter gives the direction to the light at infinity
 	idVec3					lightCenter;				// offset the lighting direction for shading and
 	int						shadowLOD;					// level of detail for shadowmap selection
+	float					shadowFadeOut;				// blending from last shadow LOD to invisible
 	idRenderMatrix			shadowV[6];					// shadow depth view matrix for lighting pass
 	idRenderMatrix			shadowP[6];					// shadow depth projection matrix for lighting pass
 	idVec2i					imageSize;
@@ -414,9 +413,6 @@ struct viewLight_t
 	drawSurf_t* 			localShadows;				// don't shadow local surfaces
 	drawSurf_t* 			globalInteractions;			// get shadows from everything
 	drawSurf_t* 			translucentInteractions;	// translucent interactions don't get shadows
-
-	// R_AddSingleLight will build a chain of parameters here to setup shadow volumes
-	preLightShadowVolumeParms_t* 	preLightShadowVolumes;
 
 	bool					ImageAtlasPlaced() const
 	{
@@ -471,10 +467,6 @@ struct viewEntity_t
 	idVec3					lightGridSize;
 	int						lightGridBounds[3];
 	// RB end
-
-	// R_AddSingleModel will build a chain of parameters here to setup shadow volumes
-	staticShadowVolumeParms_t* 		staticShadowVolumes;
-	dynamicShadowVolumeParms_t* 	dynamicShadowVolumes;
 };
 
 // RB: viewEnvprobes are allocated on the frame temporary stack memory
@@ -916,9 +908,7 @@ enum vertexLayoutType_t
 {
 	LAYOUT_UNKNOWN = 0,	// RB: TODO -1
 	LAYOUT_DRAW_VERT,
-	LAYOUT_DRAW_SHADOW_VERT,
-	LAYOUT_DRAW_SHADOW_VERT_SKINNED,
-	LAYOUT_DRAW_IMGUI_VERT,
+	LAYOUT_DRAW_IMGUI_VERT, // unused
 	LAYOUT_DRAW_DEPTH,
 	NUM_VERTEX_LAYOUTS
 };
@@ -952,14 +942,8 @@ enum bindingLayoutType_t
 
 	BINDING_LAYOUT_DEPTH,
 
-	//BINDING_LAYOUT_GBUFFER,
-	//BINDING_LAYOUT_GBUFFER_SKINNED,
-
 	BINDING_LAYOUT_AMBIENT_LIGHTING_IBL,
 	BINDING_LAYOUT_AMBIENT_LIGHTING_IBL_SKINNED,
-
-	//BINDING_LAYOUT_DRAW_SHADOWVOLUME, // TODO FIX or REMOVE?
-	//BINDING_LAYOUT_DRAW_SHADOWVOLUME_SKINNED,
 
 	BINDING_LAYOUT_DRAW_INTERACTION,
 	BINDING_LAYOUT_DRAW_INTERACTION_SKINNED,
@@ -1122,13 +1106,11 @@ public:
 public:
 	// renderer globals
 
-#if defined( USE_NVRHI )
 	nvrhi::ICommandList* CommandList() override
 	{
 		return backend.FrontendCommandList();
 	}
 #else
-#endif
 
 	bool					registered;		// cleared at shutdown, set at InitOpenGL
 
@@ -1222,9 +1204,7 @@ extern idCVar r_windowWidth;
 extern idCVar r_windowHeight;
 
 extern idCVar r_debugContext;				// enable various levels of context debug
-#if defined(USE_NVRHI)
-	extern idCVar r_useValidationLayers;
-#endif
+extern idCVar r_useValidationLayers;
 extern idCVar r_skipAMDWorkarounds;         // skip work arounds for AMD driver bugs
 extern idCVar r_skipIntelWorkarounds;		// skip work arounds for Intel driver bugs
 extern idCVar r_vidMode;					// video mode number
@@ -1260,7 +1240,6 @@ extern idCVar r_useLightPortalCulling;		// 0 = none, 1 = box, 2 = exact clip of 
 extern idCVar r_useLightAreaCulling;		// 0 = off, 1 = on
 extern idCVar r_useLightScissors;			// 1 = use custom scissor rectangle for each light
 extern idCVar r_useEntityPortalCulling;		// 0 = none, 1 = box
-extern idCVar r_skipPrelightShadows;		// 1 = skip the dmap generated static shadow volumes
 extern idCVar r_useCachedDynamicModels;		// 1 = cache snapshots of dynamic models
 extern idCVar r_useScissor;					// 1 = scissor clip as portals and lights are processed
 extern idCVar r_usePortals;					// 1 = use portals to perform area culling, otherwise draw everything
@@ -1270,11 +1249,8 @@ extern idCVar r_lightAllBackFaces;			// light all the back faces, even when they
 extern idCVar r_useLightDepthBounds;		// use depth bounds test on lights to reduce both shadow and interaction fill
 extern idCVar r_useShadowDepthBounds;		// use depth bounds test on individual shadows to reduce shadow fill
 // RB begin
-extern idCVar r_useShadowMapping;			// use shadow mapping instead of stencil shadows
 extern idCVar r_useShadowAtlas;				// temporary for perf testing: pack shadow maps into big atlas
 extern idCVar r_useHalfLambertLighting;		// use Half-Lambert lighting instead of classic Lambert
-extern idCVar r_useHDR;
-extern idCVar r_useSeamlessCubeMap;
 // RB end
 
 extern idCVar r_skipStaticInteractions;		// skip interactions created at level load
@@ -1287,7 +1263,6 @@ extern idCVar r_skipFrontEnd;				// bypasses all front end work, but 2D gui rend
 extern idCVar r_skipBackEnd;				// don't draw anything
 extern idCVar r_skipCopyTexture;			// do all rendering, but don't actually copyTexSubImage2D
 extern idCVar r_skipRender;					// skip 3D rendering, but pass 2D
-extern idCVar r_skipRenderContext;			// NULL the rendering context during backend 3D rendering
 extern idCVar r_skipTranslucent;			// skip the translucent interaction rendering
 extern idCVar r_skipAmbient;				// bypasses all non-interaction drawing
 extern idCVar r_skipNewAmbient;				// bypasses all vertex/fragment program ambients
@@ -1379,7 +1354,7 @@ extern idCVar r_shadowMapFrustumFOV;
 extern idCVar r_shadowMapSingleSide;
 extern idCVar r_shadowMapImageSize;
 extern idCVar r_shadowMapJitterScale;
-extern idCVar r_shadowMapBiasScale;
+//extern idCVar r_shadowMapBiasScale;
 extern idCVar r_shadowMapRandomizeJitter;
 extern idCVar r_shadowMapSamples;
 extern idCVar r_shadowMapSplits;
@@ -1408,10 +1383,6 @@ extern idCVar r_ldrContrastOffset;
 
 extern idCVar r_useFilmicPostProcessing;
 extern idCVar r_forceAmbient;
-
-extern idCVar r_useSSGI;
-extern idCVar r_ssgiDebug;
-extern idCVar r_ssgiFiltering;
 
 extern idCVar r_useSSAO;
 extern idCVar r_ssaoDebug;
@@ -1523,10 +1494,6 @@ struct glimpParms_t
 #define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 // Helper function for using SDL2 and Vulkan on Linux.
 std::vector<const char*> get_required_extensions();
-
-#if !defined( USE_NVRHI )
-	extern vulkanContext_t vkcontext;
-#endif
 
 // DG: R_GetModeListForDisplay is called before GLimp_Init(), but SDL needs SDL_Init() first.
 // So add PreInit for platforms that need it, others can just stub it.
@@ -1744,10 +1711,8 @@ TR_TRISURF
 srfTriangles_t* 	R_AllocStaticTriSurf();
 void				R_AllocStaticTriSurfVerts( srfTriangles_t* tri, int numVerts );
 void				R_AllocStaticTriSurfIndexes( srfTriangles_t* tri, int numIndexes );
-void				R_AllocStaticTriSurfPreLightShadowVerts( srfTriangles_t* tri, int numVerts );
 void				R_AllocStaticTriSurfSilIndexes( srfTriangles_t* tri, int numIndexes );
 void				R_AllocStaticTriSurfDominantTris( srfTriangles_t* tri, int numVerts );
-void				R_AllocStaticTriSurfSilEdges( srfTriangles_t* tri, int numSilEdges );
 void				R_AllocStaticTriSurfMirroredVerts( srfTriangles_t* tri, int numMirroredVerts );
 void				R_AllocStaticTriSurfDupVerts( srfTriangles_t* tri, int numDupVerts );
 
@@ -1816,13 +1781,9 @@ struct deformInfo_t
 	int					numDupVerts;			// number of duplicate vertexes
 	int* 				dupVerts;				// pairs of the number of the first vertex and the number of the duplicate vertex
 
-	int					numSilEdges;			// number of silhouette edges
-	silEdge_t* 			silEdges;				// silhouette edges
-
 	vertCacheHandle_t	staticIndexCache;		// GL_INDEX_TYPE
 	vertCacheHandle_t	staticAmbientCache;		// idDrawVert
-	// TODO(Stephen): Add a vertex cache for the skinned vertices
-	vertCacheHandle_t	staticShadowCache;		// idShadowCacheSkinned
+//	vertCacheHandle_t	staticShadowCache;		// idShadowCacheSkinned
 };
 
 
@@ -1890,10 +1851,6 @@ void RB_SetVertexColorParms( stageVertexColor_t svc );
 
 #include "ResolutionScale.h"
 #include "RenderLog.h"
-#include "jobs/ShadowShared.h"
-#include "jobs/prelightshadowvolume/PreLightShadowVolume.h"
-#include "jobs/staticshadowvolume/StaticShadowVolume.h"
-#include "jobs/dynamicshadowvolume/DynamicShadowVolume.h"
 #include "GLMatrix.h"
 
 #include "BufferObject.h"

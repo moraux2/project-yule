@@ -159,7 +159,6 @@ void idGuiModel::EmitSurfaces( float modelMatrix[16], float modelViewMatrix[16],
 		drawSurf->ambientCache = vertexBlock;
 		// build a vertCacheHandle_t that points inside the allocated block
 		drawSurf->indexCache = indexBlock + ( ( int64 )( guiSurf.firstIndex * sizeof( triIndex_t ) ) << VERTCACHE_OFFSET_SHIFT );
-		drawSurf->shadowCache = 0;
 		drawSurf->jointCache = 0;
 		drawSurf->skinnedCache = 0;
 		drawSurf->frontEndGeo = NULL;
@@ -172,7 +171,7 @@ void idGuiModel::EmitSurfaces( float modelMatrix[16], float modelViewMatrix[16],
 			drawSurf->scissorRect.Intersect( guiSurf.clipRect );
 		}
 		drawSurf->sort = shader->GetSort();
-		drawSurf->renderZFail = 0;
+
 		// process the shader expressions for conditionals / color / texcoords
 		const float*	constRegs = shader->ConstantRegisters();
 		if( constRegs )
@@ -290,11 +289,8 @@ void idGuiModel::EmitFullScreen( Framebuffer* renderTarget )
 	}
 
 	float xScale = 1.0f / screenSize.x;
-#if defined( USE_VULKAN ) || defined( USE_NVRHI )
-	float yScale = -1.0f / screenSize.y;  // flip y
-#else
-	float yScale = 1.0f / screenSize.y;
-#endif
+	float yScale = -1.0f / screenSize.y;  // RB: flip y for DX12 & Vulkan
+
 	float zScale = -1.0f;
 
 	viewDef->scissor.x1 = 0;
@@ -318,17 +314,8 @@ void idGuiModel::EmitFullScreen( Framebuffer* renderTarget )
 	viewDef->projectionMatrix[2 * 4 + 2] = zScale;
 	viewDef->projectionMatrix[2 * 4 + 3] = 0.0f;
 
-#if defined( USE_NVRHI )
 	viewDef->projectionMatrix[3 * 4 + 0] = -( screenSize.x * xScale );
 	viewDef->projectionMatrix[3 * 4 + 1] = -( screenSize.y * yScale );
-#else
-	viewDef->projectionMatrix[3 * 4 + 0] = -1.0f; // RB: was -2.0f
-#if defined(USE_VULKAN)
-	viewDef->projectionMatrix[3 * 4 + 1] = -1.0f;
-#else
-	viewDef->projectionMatrix[3 * 4 + 1] = 1.0f;
-#endif
-#endif
 	viewDef->projectionMatrix[3 * 4 + 2] = 0.0f;
 	viewDef->projectionMatrix[3 * 4 + 3] = 1.0f;
 

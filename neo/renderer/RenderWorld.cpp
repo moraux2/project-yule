@@ -33,10 +33,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "RenderCommon.h"
 
-#if defined( USE_NVRHI )
-	#include <sys/DeviceManager.h>
-	extern DeviceManager* deviceManager;
-#endif
+#include <sys/DeviceManager.h>
+extern DeviceManager* deviceManager;
 
 /*
 ===================

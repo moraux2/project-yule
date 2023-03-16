@@ -37,10 +37,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "../sound/sound.h"
 
-#if defined( USE_NVRHI )
-	#include <sys/DeviceManager.h>
-	extern DeviceManager* deviceManager;
-#endif
+#include <sys/DeviceManager.h>
+extern DeviceManager* deviceManager;
 
 // RB begin
 #if defined(USE_DOOMCLASSIC)
@@ -192,7 +190,6 @@ idCommonLocal::idCommonLocal() :
 	mapSpawnData.savegameFile = NULL;
 
 	currentMapName.Clear();
-	aviDemoShortName.Clear();
 
 	renderWorld = NULL;
 	soundWorld = NULL;
@@ -204,7 +201,6 @@ idCommonLocal::idCommonLocal() :
 	gameTimeResidual = 0;
 	syncNextGameFrame = true;
 	mapSpawned = false;
-	aviCaptureMode = false;
 	timeDemo = TD_NO;
 
 	nextSnapshotSendTime = 0;
@@ -1521,12 +1517,6 @@ void idCommonLocal::Shutdown()
 
 	// shutdown the script debugger
 	// DebuggerServerShutdown();
-
-	if( aviCaptureMode )
-	{
-		printf( "EndAVICapture();\n" );
-		EndAVICapture();
-	}
 
 	printf( "Stop();\n" );
 	Stop();

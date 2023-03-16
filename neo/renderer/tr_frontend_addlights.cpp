@@ -104,7 +104,6 @@ static void R_AddSingleLight( viewLight_t* vLight )
 	// until proven otherwise
 	vLight->removeFromList = true;
 	vLight->shadowOnlyViewEntities = NULL;
-	vLight->preLightShadowVolumes = NULL;
 
 	// globals we really should pass in...
 	const viewDef_t* viewDef = tr.viewDef;
@@ -266,14 +265,19 @@ static void R_AddSingleLight( viewLight_t* vLight )
 		vLight->scissorRect.zmax = projected[1][2];
 
 		// RB: calculate shadow LOD similar to Q3A .md3 LOD code
-		vLight->shadowLOD = 0;
 
-		if( r_useShadowMapping.GetBool() && lightCastsShadows )
+		// -1 means no shadows
+		vLight->shadowLOD = -1;
+		vLight->shadowFadeOut = 0;
+
+		if( lightCastsShadows )
 		{
 			float           flod, lodscale;
 			float           projectedRadius;
 			int             lod;
 			int             numLods;
+
+			vLight->shadowLOD = 0;
 
 			numLods = MAX_SHADOWMAP_RESOLUTIONS;
 
@@ -303,7 +307,8 @@ static void R_AddSingleLight( viewLight_t* vLight )
 				flod = 0;
 			}
 
-			flod *= numLods;
+			// +1 allow to be so distant so we turn off shadow mapping
+			flod *= ( numLods + 1 );
 
 			if( flod < 0 )
 			{
@@ -311,12 +316,6 @@ static void R_AddSingleLight( viewLight_t* vLight )
 			}
 
 			lod = idMath::Ftoi( flod );
-
-			if( lod >= numLods )
-			{
-				//lod = numLods - 1;
-			}
-
 			lod += r_shadowMapLodBias.GetInteger();
 
 			if( lod < 0 )
@@ -327,9 +326,13 @@ static void R_AddSingleLight( viewLight_t* vLight )
 			if( lod >= numLods )
 			{
 				// don't draw any shadow
-				//lod = -1;
+				lod = -1;
+			}
 
-				lod = numLods - 1;
+			if( lod == ( numLods - 1 ) )
+			{
+				// blend shadows smoothly in
+				vLight->shadowFadeOut = idMath::Frac( flod );
 			}
 
 			// 2048^2 ultra quality is only for cascaded shadow mapping with sun lights
@@ -506,81 +509,7 @@ static void R_AddSingleLight( viewLight_t* vLight )
 			vLight->shadowOnlyViewEntities = shadEnt;
 		}
 	}
-
-	//--------------------------------------------
-	// add the prelight shadows for the static world geometry
-	//--------------------------------------------
-	if( light->parms.prelightModel != NULL && !r_useShadowMapping.GetBool() )
-	{
-		srfTriangles_t* tri = light->parms.prelightModel->Surface( 0 )->geometry;
-
-		// these shadows will have valid bounds, and can be culled normally,
-		// but they will typically cover most of the light's bounds
-		if( idRenderMatrix::CullBoundsToMVP( viewDef->worldSpace.mvp, tri->bounds ) )
-		{
-			return;
-		}
-
-		// prelight models should always have static data that never gets purged
-		assert( vertexCache.CacheIsCurrent( tri->shadowCache ) );
-		assert( vertexCache.CacheIsCurrent( tri->indexCache ) );
-
-		drawSurf_t* shadowDrawSurf = ( drawSurf_t* )R_FrameAlloc( sizeof( *shadowDrawSurf ), FRAME_ALLOC_DRAW_SURFACE );
-
-		shadowDrawSurf->frontEndGeo = tri;
-		shadowDrawSurf->ambientCache = 0;
-		shadowDrawSurf->indexCache = tri->indexCache;
-		shadowDrawSurf->shadowCache = tri->shadowCache;
-		shadowDrawSurf->jointCache = 0;
 		shadowDrawSurf->skinnedCache = 0;
-		shadowDrawSurf->numIndexes = 0;
-		shadowDrawSurf->space = &viewDef->worldSpace;
-		shadowDrawSurf->material = NULL;
-		shadowDrawSurf->extraGLState = 0;
-		shadowDrawSurf->shaderRegisters = NULL;
-		shadowDrawSurf->scissorRect = vLight->scissorRect;		// default to the light scissor and light depth bounds
-		shadowDrawSurf->shadowVolumeState = SHADOWVOLUME_DONE;	// assume the shadow volume is done in case r_skipPrelightShadows is set
-
-		if( !r_skipPrelightShadows.GetBool() )
-		{
-			preLightShadowVolumeParms_t* shadowParms = ( preLightShadowVolumeParms_t* )R_FrameAlloc( sizeof( shadowParms[0] ), FRAME_ALLOC_SHADOW_VOLUME_PARMS );
-
-			shadowParms->verts = tri->preLightShadowVertexes;
-			shadowParms->numVerts = tri->numVerts * 2;
-			shadowParms->indexes = tri->indexes;
-			shadowParms->numIndexes = tri->numIndexes;
-			shadowParms->triangleBounds = tri->bounds;
-			shadowParms->triangleMVP = viewDef->worldSpace.mvp;
-			shadowParms->localLightOrigin = vLight->globalLightOrigin;
-			shadowParms->localViewOrigin = viewDef->renderView.vieworg;
-			shadowParms->zNear = r_znear.GetFloat();
-			shadowParms->lightZMin = vLight->scissorRect.zmin;
-			shadowParms->lightZMax = vLight->scissorRect.zmax;
-			shadowParms->forceShadowCaps = r_forceShadowCaps.GetBool();
-			shadowParms->useShadowPreciseInsideTest = r_useShadowPreciseInsideTest.GetBool();
-			shadowParms->useShadowDepthBounds = r_useShadowDepthBounds.GetBool();
-			shadowParms->numShadowIndices = & shadowDrawSurf->numIndexes;
-			shadowParms->renderZFail = & shadowDrawSurf->renderZFail;
-			shadowParms->shadowZMin = & shadowDrawSurf->scissorRect.zmin;
-			shadowParms->shadowZMax = & shadowDrawSurf->scissorRect.zmax;
-			shadowParms->shadowVolumeState = & shadowDrawSurf->shadowVolumeState;
-
-			// the pre-light shadow volume "_prelight_light_3297" in "d3xpdm2" is malformed in that it contains the light origin so the precise inside test always fails
-			if( tr.primaryWorld->mapName.IcmpPath( "maps/game/mp/d3xpdm2.map" ) == 0 && idStr::Icmp( light->parms.prelightModel->Name(), "_prelight_light_3297" ) == 0 )
-			{
-				shadowParms->useShadowPreciseInsideTest = false;
-			}
-
-			shadowDrawSurf->shadowVolumeState = SHADOWVOLUME_UNFINISHED;
-
-			shadowParms->next = vLight->preLightShadowVolumes;
-			vLight->preLightShadowVolumes = shadowParms;
-		}
-
-		// actually link it in
-		shadowDrawSurf->nextOnLight = vLight->globalShadows;
-		vLight->globalShadows = shadowDrawSurf;
-	}
 }
 
 REGISTER_PARALLEL_JOB( R_AddSingleLight, "R_AddSingleLight" );
@@ -647,38 +576,6 @@ void R_AddLights()
 		{
 			R_ShowColoredScreenRect( vLight->scissorRect, vLight->lightDef->index );
 		}
-	}
-
-	//-------------------------------------------------
-	// Add jobs to setup pre-light shadow volumes.
-	//-------------------------------------------------
-
-	if( r_useParallelAddShadows.GetInteger() == 1 )
-	{
-		for( viewLight_t* vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next )
-		{
-			for( preLightShadowVolumeParms_t* shadowParms = vLight->preLightShadowVolumes; shadowParms != NULL; shadowParms = shadowParms->next )
-			{
-				tr.frontEndJobList->AddJob( ( jobRun_t )PreLightShadowVolumeJob, shadowParms );
-			}
-			vLight->preLightShadowVolumes = NULL;
-		}
-	}
-	else
-	{
-		int start = Sys_Microseconds();
-
-		for( viewLight_t* vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next )
-		{
-			for( preLightShadowVolumeParms_t* shadowParms = vLight->preLightShadowVolumes; shadowParms != NULL; shadowParms = shadowParms->next )
-			{
-				PreLightShadowVolumeJob( shadowParms );
-			}
-			vLight->preLightShadowVolumes = NULL;
-		}
-
-		int end = Sys_Microseconds();
-		tr.backend.pc.cpuShadowMicroSec += end - start;
 	}
 }
 
