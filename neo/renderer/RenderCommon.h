@@ -1086,8 +1086,6 @@ extern idCVar r_windowHeight;
 
 extern idCVar r_debugContext;				// enable various levels of context debug
 extern idCVar r_useValidationLayers;
-extern idCVar r_skipAMDWorkarounds;         // skip work arounds for AMD driver bugs
-extern idCVar r_skipIntelWorkarounds;		// skip work arounds for Intel driver bugs
 extern idCVar r_vidMode;					// video mode number
 extern idCVar r_displayRefresh;				// optional display refresh rate option for vid mode
 extern idCVar r_fullscreen;					// 0 = windowed, 1 = full screen
@@ -1131,7 +1129,6 @@ extern idCVar r_useLightDepthBounds;		// use depth bounds test on lights to redu
 extern idCVar r_useShadowDepthBounds;		// use depth bounds test on individual shadows to reduce shadow fill
 // RB begin
 extern idCVar r_useShadowAtlas;				// temporary for perf testing: pack shadow maps into big atlas
-extern idCVar r_useHalfLambertLighting;		// use Half-Lambert lighting instead of classic Lambert
 // RB end
 
 extern idCVar r_skipStaticInteractions;		// skip interactions created at level load

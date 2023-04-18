@@ -478,7 +478,7 @@ public:
 	idStr		extensions;
 	gltfExtra	extras;
 	//
-	gltfData* parent;
+	gltfData*	parent;
 };
 
 class gltfBuffer
@@ -526,8 +526,8 @@ class gltfSkin
 public:
 	gltfSkin() : inverseBindMatrices( -1 ), skeleton( -1 ), name( "unnamedSkin" ) { };
 	int			inverseBindMatrices;
-	int			skeleton;
-	idList<int>	joints; // integer[1,*]
+	int			skeleton;	// node ID
+	idList<int>	joints;		// integer[1,*]
 	idStr		name;
 	idStr		extensions;
 	gltfExtra	extras;
@@ -866,26 +866,33 @@ public:
 		assert( mesh );
 
 		auto& nodeList = scene->nodes;
-		int nodeCnt = 0;
-		for( auto& nodeId : nodeList )
+
+		for( gltfMesh* meshIt : meshes )
 		{
-
-			if( nodes[nodeId]->mesh != -1 &&*& meshes[nodes[nodeId]->mesh] == mesh )
+			if( meshIt != mesh )
 			{
-				if( id != nullptr )
-				{
-					*id = nodeCnt;
-				}
-
-				return nodes[nodeId];
+				continue;
 			}
-			nodeCnt++;
-		}
 
+			int nodeCnt = 0;
+			for( auto& nodeId : nodeList )
+			{
+				if( nodes[nodeId]->mesh != -1 && meshes[nodes[nodeId]->mesh] == meshIt )
+				{
+					if( id != nullptr )
+					{
+						*id = nodeCnt;
+					}
+
+					return nodes[nodeId];
+				}
+				nodeCnt++;
+			}
+		}
 		return nullptr;
 	}
 
-	gltfNode* GetNode( idStr sceneName,  int id, idStr* name = nullptr )
+	gltfNode* GetNode( const idStr& sceneName, int id, idStr* name = nullptr )
 	{
 		int sceneId = GetSceneId( sceneName );
 		if( sceneId < 0 || sceneId > scenes.Num() )
@@ -915,7 +922,7 @@ public:
 		return nullptr;
 	}
 
-	gltfNode* GetNode( idStr name, int* id = nullptr, bool caseSensitive = false )
+	gltfNode* GetNode( const idStr& name, int* id = nullptr, bool caseSensitive = false )
 	{
 		assert( name[0] );
 
@@ -937,8 +944,28 @@ public:
 		return nullptr;
 	}
 
+	gltfNode* GetMeshNode( const idStr& meshName, int* id = nullptr, bool caseSensitive = false )
+	{
+		int nodeCnt = 0;
+		for( auto* node : nodes )
+		{
+			if( node->mesh != -1 &&
+					( caseSensitive ? node->name.Cmp( meshName ) : node->name.Icmp( meshName ) ) == 0 )
+			{
+				if( id != nullptr )
+				{
+					*id = nodeCnt;
+				}
 
-	gltfNode* GetNode( idStr sceneName, idStr name , int* id = nullptr , bool caseSensitive = false )
+				return node;
+			}
+			nodeCnt++;
+		}
+
+		return nullptr;
+	}
+
+	gltfNode* GetNode( const idStr& sceneName, const idStr& name , int* id = nullptr , bool caseSensitive = false )
 	{
 		int sceneId =  GetSceneId( sceneName );
 		if( sceneId < 0 || sceneId > scenes.Num() )
@@ -997,7 +1024,19 @@ public:
 		return false;
 	}
 
-	gltfAnimation* GetAnimation( idStr animName, int target )
+	gltfAnimation* GetAnimation( const idStr& animName )
+	{
+		for( auto* anim : animations )
+		{
+			if( anim->name == animName )
+			{
+				return anim;
+			}
+		}
+		return nullptr;
+	}
+
+	gltfAnimation* GetAnimation( const idStr& animName, int target )
 	{
 		for( auto* anim : animations )
 		{
@@ -1021,7 +1060,7 @@ public:
 		return nullptr;
 	}
 
-	int GetSceneId( idStr sceneName , gltfScene* result = nullptr ) const
+	int GetSceneId( const idStr& sceneName , gltfScene* result = nullptr ) const
 	{
 		for( int i = 0; i < scenes.Num(); i++ )
 		{
@@ -1042,7 +1081,7 @@ public:
 	{
 		if( node->mesh != -1 )
 		{
-			meshIds.Append( GetNodeIndex( node ) );
+			meshIds.AddUnique( GetNodeIndex( node ) );
 		}
 
 		for( auto child : node->children )
@@ -1051,7 +1090,64 @@ public:
 		}
 	}
 
-	gltfSkin* GetSkin( idStr name )
+	void GetAllMeshes( idList<int>& meshIds )
+	{
+		for( int i = 0; i < nodes.Num(); i++ )
+		{
+			auto* node = nodes[i];
+
+			if( node->mesh != -1 )
+			{
+				meshIds.AddUnique( i );
+			}
+		}
+	}
+
+	void GetAllSkinnedMeshes( gltfNode* node, idList<int>& meshIds )
+	{
+		if( node->mesh != -1 && node->skin != -1 )
+		{
+			meshIds.AddUnique( GetNodeIndex( node ) );
+		}
+
+		for( auto child : node->children )
+		{
+			GetAllSkinnedMeshes( nodes[child], meshIds );
+		}
+	}
+
+	void GetAllSkinnedMeshes( gltfSkin* skin, idList<int>& meshIds )
+	{
+		for( int i = 0; i < nodes.Num(); i++ )
+		{
+			auto* node = nodes[i];
+
+			if( node->mesh != -1 && node->skin != -1 )
+			{
+				gltfSkin* meshSkin = skins[node->skin];
+
+				if( meshSkin == skin )
+				{
+					meshIds.AddUnique( i );
+				}
+			}
+		}
+	}
+
+	void GetAllSkinnedMeshes( idList<int>& meshIds )
+	{
+		for( int i = 0; i < nodes.Num(); i++ )
+		{
+			auto* node = nodes[i];
+
+			if( node->mesh != -1 && node->skin != -1 )
+			{
+				meshIds.AddUnique( i );
+			}
+		}
+	}
+
+	gltfSkin* GetSkin( const idStr& name )
 	{
 		for( auto skin : skins )
 		{
@@ -1101,10 +1197,12 @@ public:
 	idList<int> GetAnimTargets( gltfAnimation* anim ) const
 	{
 		idList<int> result;
+
 		for( auto channel : anim->channels )
 		{
 			result.AddUnique( channel->target.node );
 		}
+
 		return result;
 	}
 
@@ -1112,6 +1210,7 @@ public:
 	{
 		idList<int> result;
 		int channelIdx = 0;
+
 		for( auto channel : anim->channels )
 		{
 			if( channel->target.node >= 0 && nodes[channel->target.node] == node )
@@ -1121,12 +1220,12 @@ public:
 			}
 			channelIdx++;
 		}
+
 		return result;
 	}
 
 	int GetAnimationIds( gltfNode* node , idList<int>& result )
 	{
-
 		int animIdx = 0;
 		for( auto anim : animations )
 		{
@@ -1135,14 +1234,17 @@ public:
 				if( channel->target.node >= 0 && nodes[channel->target.node] == node )
 				{
 					result.AddUnique( animIdx );
+					break;
 				}
 			}
 			animIdx++;
 		}
+
 		for( int nodeId : node->children )
 		{
 			GetAnimationIds( nodes[nodeId], result );
 		}
+
 		return result.Num();
 	}
 
@@ -1182,7 +1284,7 @@ public:
 		return result;
 	}
 
-	//Please note : assumes all nodes are _not_ dirty!
+	// Please note : assumes all nodes are _not_ dirty!
 	idMat4 GetLightMatrix( int lightId ) const
 	{
 		idMat4 result = mat4_identity;
@@ -1219,7 +1321,7 @@ public:
 	//idmath = row major, except mat3
 	//gltf matrices : column-major.
 	//if mat* is valid , it will be multplied by this node's matrix that is resolved in its full hiararchy and stops at root.
-	static void ResolveNodeMatrix( gltfNode* node, idMat4* mat = nullptr , gltfNode* root = nullptr )
+	static void ResolveNodeMatrix( gltfNode* node, idMat4* mat = nullptr, gltfNode* root = nullptr )
 	{
 		if( node->dirty )
 		{
@@ -1235,9 +1337,10 @@ public:
 			node->dirty = false;
 		}
 
-		//resolve full hierarchy
+		// resolve full hierarchy
 		if( mat != nullptr )
 		{
+			// collect hierarchy upwards
 			idList<gltfNode*> hierachy( 2 );
 			gltfNode* parent = node;
 			while( parent )
@@ -1250,6 +1353,8 @@ public:
 				}
 				parent = parent->parent;
 			}
+
+			// build world transform from up to down
 			for( int i = hierachy.Num() - 1; i >= 0; i-- )
 			{
 				*mat *= hierachy[i]->matrix;
@@ -1257,7 +1362,7 @@ public:
 		}
 	}
 
-	void Advance( gltfAnimation* anim = nullptr );
+	//void Advance( gltfAnimation* anim = nullptr );
 
 	//this copies the data and view cached on the accessor
 	template <class T>
