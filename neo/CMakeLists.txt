@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project(RBDoom3BFG)
+project(RBDoom3BFG-LibreCoop)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 if(CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 6)
 	# set MSVC startup project
-	set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT RBDoom3BFG)
+	set_property (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DoomCoop)
 endif()
 	
 option(STANDALONE
@@ -1541,18 +1541,18 @@ if(MSVC)
 	
 	list(APPEND RBDOOM3_SOURCES ${WIN32_RESOURCES})
 	
-	add_executable(RBDoom3BFG WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
+	add_executable(DoomCoop WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 
-	add_dependencies(RBDoom3BFG idlib)
+	add_dependencies(DoomCoop idlib)
     
     if(USE_DX12)
-		add_dependencies(RBDoom3BFG nvrhi_d3d12)
+		add_dependencies(DoomCoop nvrhi_d3d12)
 	endif()
 	
 	if(USE_VULKAN)
-		add_dependencies(RBDoom3BFG nvrhi_vk)
+		add_dependencies(DoomCoop nvrhi_vk)
 	endif()
-	target_link_libraries(RBDoom3BFG
+	target_link_libraries(DoomCoop
 		idlib
 		${DirectX_LIBRARIES}
 		dbghelp
@@ -1572,15 +1572,15 @@ if(MSVC)
 		
 	# set MSVC default debug directory on executable	
 	if(CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 8)
-		set_target_properties(RBDoom3BFG PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
+		set_target_properties(DoomCoop PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
 	endif()
 	
 	#CMAKE_BINARY_DIR
 	if(CMAKE_CL_64)
-		install(TARGETS RBDoom3BFG
+		install(TARGETS DoomCoop
 			RUNTIME DESTINATION .)
 	else()
-		install(TARGETS RBDoom3BFG
+		install(TARGETS DoomCoop
 			RUNTIME DESTINATION .)
 	endif()	
 
@@ -1712,17 +1712,17 @@ else()
 		set(MACOSX_BUNDLE_INFO_STRING "")					# to be added by author if desired
 		set(MACOSX_BUNDLE_COPYRIGHT "")						# to be added by author if desired
 
-		add_executable(RBDoom3BFG MACOSX_BUNDLE ${MACOS_RESOURCES} ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
+		add_executable(DoomCoop MACOSX_BUNDLE ${MACOS_RESOURCES} ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 	else()
-		add_executable(RBDoom3BFG WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
+		add_executable(DoomCoop WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 	endif()
 
 	if(USE_VULKAN)
-        add_dependencies(RBDoom3BFG nvrhi_vk)
+        add_dependencies(DoomCoop nvrhi_vk)
     endif()
 	if (USE_PRECOMPILED_HEADERS)
 		# make sure precompiled header is created before executable is compiled
-		add_dependencies(RBDoom3BFG precomp_header_rbdoom3bfg)
+		add_dependencies(DoomCoop precomp_header_rbdoom3bfg)
 		
 		if(WIN32)
 			set(remove_command "del")
@@ -1737,11 +1737,11 @@ else()
 					WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 					COMMENT "remove idlib/precompiled.h.gch"
 					)
-			add_dependencies(rm_precomp_header RBDoom3BFG)
+			add_dependencies(rm_precomp_header DoomCoop)
 
 		# delete precompiled header file after executable is compiled: IDE build case (e.g. Xcode)
 		else()
-			add_custom_command(TARGET RBDoom3BFG POST_BUILD
+			add_custom_command(TARGET DoomCoop POST_BUILD
 					COMMAND ${remove_command} "idlib/precompiled.h.gch"
 					WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 					COMMENT "remove idlib/precompiled.h.gch"
@@ -1754,7 +1754,7 @@ else()
 			set(RT_LIBRARY rt)
 		endif()
 
-		target_link_libraries(RBDoom3BFG
+		target_link_libraries(DoomCoop
 			idlib
 			${Vulkan_LIBRARY}
 			#${OPENGL_LIBRARIES}
@@ -1772,28 +1772,28 @@ else()
 endif()
 
 if(USE_DX12)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_DX12=1)
-	target_link_libraries(RBDoom3BFG nvrhi_d3d12)
+	target_compile_definitions(DoomCoop PUBLIC USE_DX12=1)
+	target_link_libraries(DoomCoop nvrhi_d3d12)
 endif()
 
 if(USE_DXIL_ON_DX12)
-	target_compile_definitions(RBDoom3BFG PRIVATE USE_DXIL_ON_DX12=1)
+	target_compile_definitions(DoomCoop PRIVATE USE_DXIL_ON_DX12=1)
 endif()
 
 if(USE_VULKAN)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_VK=1)
-	target_link_libraries(RBDoom3BFG nvrhi_vk)
+	target_compile_definitions(DoomCoop PUBLIC USE_VK=1)
+	target_link_libraries(DoomCoop nvrhi_vk)
 endif()
 
 if(OPTICK)
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_OPTICK=1)
+	target_compile_definitions(DoomCoop PUBLIC USE_OPTICK=1)
 else()
-	target_compile_definitions(RBDoom3BFG PUBLIC USE_OPTICK=0)
+	target_compile_definitions(DoomCoop PUBLIC USE_OPTICK=0)
 endif()
 
 # needs to come after nvrhi_d3d11 etc. for link order
-target_link_libraries(RBDoom3BFG nvrhi)
+target_link_libraries(DoomCoop nvrhi)
 
 add_subdirectory(shaders)
-add_dependencies(RBDoom3BFG Shaders)
+add_dependencies(DoomCoop Shaders)
 
