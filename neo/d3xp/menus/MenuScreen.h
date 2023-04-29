@@ -626,7 +626,7 @@ private:
 		}
 		bool operator==( const optionData_t& other ) const
 		{
-			return ( fullscreen == other.fullscreen ) && ( ( vidmode == other.vidmode ) || ( fullscreen == 0 ) );
+			return ( fullscreen == other.fullscreen ) && ( ( vidmode == other.vidmode ) || ( fullscreen <= 0 ) );
 		}
 		int fullscreen;
 		int vidmode;
@@ -1360,13 +1360,15 @@ public:
 	public:
 		enum systemSettingFields_t
 		{
+#ifdef _WIN32
+			SYSTEM_FIELD_RENDERAPI, // RB: choose between DX12 and Vulkan on Windows
+#endif
 			SYSTEM_FIELD_FULLSCREEN,
 			SYSTEM_FIELD_FRAMERATE,
 			SYSTEM_FIELD_VSYNC,
 			SYSTEM_FIELD_ANTIALIASING,
 			// RB begin
 			SYSTEM_FIELD_POSTFX,
-			SYSTEM_FIELD_SHADOWMAPPING,
 			SYSTEM_FIELD_SSAO,
 			SYSTEM_FIELD_AMBIENT_BRIGHTNESS,
 			// RB end
@@ -1395,13 +1397,14 @@ public:
 		bool						IsRestartRequired() const;
 
 	private:
+		idStr originalRenderAPI;
 		int originalFramerate;
 		int originalAntialias;
 		int originalVsync;
 		float originalBrightness;
 		float originalVolume;
 		// RB begin
-		int originalShadowMapping;
+		//int originalShadowMapping; // TODO use for quality of shadowmaps?
 		int originalSSAO;
 		int originalPostProcessing;
 		float originalAmbientBrightness;

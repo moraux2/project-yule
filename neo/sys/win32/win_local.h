@@ -31,12 +31,6 @@ If you have questions concerning this license or the applicable additional terms
 
 #include <windows.h>
 
-// RB: replaced QGL with GLEW
-#if !defined(USE_VULKAN)
-	#include "../../libs/glew/include/GL/wglew.h" // windows OpenGL extensions
-#endif
-// RB end
-
 #include "win_input.h"
 
 
@@ -75,7 +69,7 @@ LONG WINAPI MainWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 void Conbuf_AppendText( const char* msg );
 
-typedef struct
+struct Win32Vars_t
 {
 	HWND			hWnd;
 	HINSTANCE		hInstance;
@@ -98,7 +92,6 @@ typedef struct
 	WNDPROC			wndproc;
 
 	HDC				hDC;							// handle to device context
-	HGLRC			hGLRC;						// handle to GL rendering context
 	PIXELFORMATDESCRIPTOR pfd;
 	int				pixelformat;
 
@@ -137,7 +130,7 @@ typedef struct
 	LPDIRECTINPUTDEVICE8	g_pKeyboard;
 	idJoystickWin32			g_Joystick;
 
-} Win32Vars_t;
+};
 
 extern Win32Vars_t	win32;
 

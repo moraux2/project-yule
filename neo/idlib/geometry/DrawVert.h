@@ -115,18 +115,21 @@ ID_INLINE halfFloat_t F32toF16( float a )
 class idDrawVert
 {
 	friend class idSwap;
-	friend class idShadowVertSkinned;
+//	friend class idShadowVertSkinned;
 	friend class idRenderModelStatic;
 
 	friend void TransformVertsAndTangents( idDrawVert* targetVerts, const int numVerts, const idDrawVert* baseVerts, const idJointMat* joints );
 
 public:
 	idVec3				xyz;			// 12 bytes
+
 //private:
+
 	// RB: don't let the old tools code mess with these values
 	halfFloat_t			st[2];			// 4 bytes
 	byte				normal[4];		// 4 bytes
 	byte				tangent[4];		// 4 bytes -- [3] is texture polarity sign
+
 public:
 	byte				color[4];		// 4 bytes
 	byte				color2[4];		// 4 bytes -- weights for skinning
@@ -790,6 +793,7 @@ ID_INLINE idVec3 idDrawVert::GetSkinnedDrawVertPosition( const idDrawVert& vert,
 	return accum * idVec4( vert.xyz.x, vert.xyz.y, vert.xyz.z, 1.0f );
 }
 
+#if 0
 /*
 ===============================================================================
 Shadow Vertex
@@ -842,5 +846,6 @@ ID_INLINE void idShadowVertSkinned::Clear()
 {
 	xyzw.Zero();
 }
+#endif
 
 #endif /* !__DRAWVERT_H__ */

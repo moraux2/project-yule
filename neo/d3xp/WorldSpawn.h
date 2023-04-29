@@ -49,11 +49,17 @@ public:
 	void			Save( idSaveGame* savefile );
 	void			Restore( idRestoreGame* savefile );
 
+	void			Event_PlayBackgroundMusic();
+
 	// added for coop
 	void			InitializateMapScript( void );
 
 
 private:
+	void			SetMusicTrack();
+
+	idStr			musicTrack;
+
 	void			Event_Remove();
 };
 

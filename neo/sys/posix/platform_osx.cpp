@@ -345,9 +345,11 @@ void Sys_ReLaunch()
 		DIR* devfd = opendir( "/dev/fd" );
 		if( devfd != NULL )
 		{
-			struct dirent entry;
+			//struct dirent entry;
 			struct dirent* result;
-			while( readdir_r( devfd, &entry, &result ) == 0 )
+			//while( readdir_r( devfd, &entry, &result ) == 0 )
+			// SRS - readdir_r() is deprecated on linux, readdir() is thread safe with different dir streams
+			while( ( result = readdir( devfd ) ) != NULL )
 			{
 				const char* filename = result->d_name;
 				char* endptr = NULL;
@@ -455,7 +457,7 @@ int main( int argc, const char** argv )
 	cmdargv = argv;
 	// DG end
 
-	Posix_EarlyInit( );
+	Posix_EarlyInit();
 
 	if( argc > 1 )
 	{
@@ -466,7 +468,7 @@ int main( int argc, const char** argv )
 		common->Init( 0, NULL, NULL );
 	}
 
-	Posix_LateInit( );
+	Posix_LateInit();
 
 	while( 1 )
 	{

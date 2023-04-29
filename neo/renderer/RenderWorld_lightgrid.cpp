@@ -4,6 +4,7 @@
 Doom 3 GPL Source Code
 Copyright (C) 1999-2011 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2013-2021 Robert Beckebans
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 GPL Source Code (?Doom 3 Source Code?).
 
@@ -33,6 +34,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "RenderCommon.h"
 #include "CmdlineProgressbar.h"
 #include "../framework/Common_local.h" // commonLocal.WaitGameThread();
+
+#include <sys/DeviceManager.h>
+extern DeviceManager* deviceManager;
 
 
 #define LGRID_FILE_EXT			"lightgrid"
@@ -413,6 +417,9 @@ void idRenderWorldLocal::LoadLightGridImages()
 
 	idStr filename;
 
+	nvrhi::CommandListHandle commandList = deviceManager->GetDevice()->createCommandList();
+	commandList->open();
+
 	// try to load existing lightgrid image data
 	for( int i = 0; i < numPortalAreas; i++ )
 	{
@@ -425,9 +432,12 @@ void idRenderWorldLocal::LoadLightGridImages()
 		}
 		else
 		{
-			area->lightGrid.irradianceImage->Reload( true );
+			area->lightGrid.irradianceImage->Reload( true, commandList );
 		}
 	}
+
+	commandList->close();
+	deviceManager->GetDevice()->executeCommandList( commandList );
 }
 
 /*
@@ -1030,7 +1040,6 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 	idStr			baseName;
 	idStr			filename;
 	renderView_t	ref;
-	int				blends;
 	int				captureSize;
 
 	int limit = MAX_AREA_LIGHTGRID_POINTS;
@@ -1115,7 +1124,6 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 	baseName.StripFileExtension();
 
 	captureSize = ENVPROBE_CAPTURE_SIZE;
-	blends = 1;
 
 	idLib::Printf( "Using limit = %i\n", limit );
 	idLib::Printf( "Using bounces = %i\n", bounces );
@@ -1149,6 +1157,10 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 			}
 		}
 	}
+
+	// turn vsync off for faster capturing of the probes
+	int oldVsync = r_swapInterval.GetInteger();
+	r_swapInterval.SetInteger( 0 );
 
 	idLib::Printf( "----------------------------------\n" );
 	idLib::Printf( "Processing %i light probes in %i areas for %i bounces\n", totalProcessedProbes, totalProcessedAreas, bounces );
@@ -1189,9 +1201,6 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 
 			// make sure the game / draw thread has completed
 			commonLocal.WaitGameThread();
-
-			glConfig.nativeScreenWidth = captureSize;
-			glConfig.nativeScreenHeight = captureSize;
 
 			// disable scissor, so we don't need to adjust all those rects
 			r_useScissor.SetBool( false );
@@ -1247,19 +1256,8 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 							ref.vieworg = gridPoint->origin;
 							ref.viewaxis = tr.cubeAxis[ side ];
 
-#if 0
-							byte* float16FRGB = tr.CaptureRenderToBuffer( captureSize, captureSize, &ref );
-#else
-							glConfig.nativeScreenWidth = captureSize;
-							glConfig.nativeScreenHeight = captureSize;
-
-							int pix = captureSize * captureSize;
-							const int bufferSize = pix * 3 * 2;
-
-							byte* float16FRGB = ( byte* )R_StaticAlloc( bufferSize );
-
 							// discard anything currently on the list
-							tr.SwapCommandBuffers( NULL, NULL, NULL, NULL, NULL, NULL );
+							//tr.SwapCommandBuffers( NULL, NULL, NULL, NULL, NULL, NULL );
 
 							// build commands to render the scene
 							tr.primaryWorld->RenderScene( &ref );
@@ -1273,29 +1271,32 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 							// discard anything currently on the list (this triggers SwapBuffers)
 							tr.SwapCommandBuffers( NULL, NULL, NULL, NULL, NULL, NULL );
 
-#if defined(USE_VULKAN)
+							// make sure that all frames have finished rendering
+							//deviceManager->GetDevice()->waitForIdle();
 
-							// TODO
+							byte* floatRGB16F = NULL;
+#if 0
+							// this probe fails in game/admin.map
+							if( a == 5 && tr.lightGridJobs.Num() == 17 && side == 4 )
+							{
+								idLib::Printf( "debugging shitty capture\n" );
+							}
+#endif
+							//bool validCapture =
+							R_ReadPixelsRGB16F( deviceManager->GetDevice(), &tr.backend.GetCommonPasses(), globalImages->envprobeHDRImage->GetTextureHandle() , nvrhi::ResourceStates::RenderTarget, &floatRGB16F, captureSize, captureSize );
 
-#else
-
-							glFinish();
-
-							glReadBuffer( GL_BACK );
-
-							globalFramebuffers.envprobeFBO->Bind();
-
-							glPixelStorei( GL_PACK_ROW_LENGTH, ENVPROBE_CAPTURE_SIZE );
-							glReadPixels( 0, 0, captureSize, captureSize, GL_RGB, GL_HALF_FLOAT, float16FRGB );
-
-							R_VerticalFlipRGB16F( float16FRGB, captureSize, captureSize );
-
-							Framebuffer::Unbind();
+							// release all in-flight references to the render targets
+							//deviceManager->GetDevice()->runGarbageCollection();
+#if 0
+							if( !validCapture )
+							{
+								idStr testName;
+								testName.Format( "env/test/area%i_envprobe_%i_side_%i.exr", a, tr.lightGridJobs.Num(), side );
+								R_WriteEXR( testName, floatRGB16F, 3, captureSize, captureSize, "fs_basepath" );
+							}
 #endif
 
-#endif
-
-							jobParms->radiance[ side ] = float16FRGB;
+							jobParms->radiance[ side ] = floatRGB16F;
 						}
 
 						tr.lightGridJobs.Append( jobParms );
@@ -1311,11 +1312,6 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 			int	end = Sys_Milliseconds();
 
 			tr.takingEnvprobe = false;
-
-			// restore the original resolution, same as "vid_restart"
-			glConfig.nativeScreenWidth = sysWidth;
-			glConfig.nativeScreenHeight = sysHeight;
-			R_SetNewMode( false );
 
 			r_useScissor.SetBool( true );
 			r_useParallelAddModels.SetBool( true );
@@ -1442,5 +1438,8 @@ CONSOLE_COMMAND( bakeLightGrids, "Bake irradiance/vis light grid data", NULL )
 	idLib::Printf( "----------------------------------\n" );
 	idLib::Printf( "Processed %i light probes in %i areas\n", totalProcessedProbes, totalProcessedAreas );
 	common->Printf( "Baked light grid irradiance in %5.1f minutes\n\n", ( totalEnd - totalStart ) / ( 1000.0f * 60 ) );
+
+	// restore vsync setting
+	r_swapInterval.SetInteger( oldVsync );
 }
 

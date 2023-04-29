@@ -3,8 +3,9 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
-Copyright (C) 2012-2021 Robert Beckebans
+Copyright (C) 2012-2023 Robert Beckebans
 Copyright (C) 2014-2016 Kot in Action Creative Artel
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -38,7 +39,6 @@ If you have questions concerning this license or the applicable additional terms
 #include "Image.h"
 #include "Font.h"
 #include "Framebuffer.h"
-
 
 // maximum texture units
 const int MAX_PROG_TEXTURE_PARMS	= 16;
@@ -111,7 +111,7 @@ struct drawSurf_t
 	int						numIndexes;
 	vertCacheHandle_t		indexCache;			// triIndex_t
 	vertCacheHandle_t		ambientCache;		// idDrawVert
-	vertCacheHandle_t		shadowCache;		// idShadowVert / idShadowVertSkinned
+//	vertCacheHandle_t		shadowCache;		// idShadowVert / idShadowVertSkinned
 	vertCacheHandle_t		jointCache;			// idJointMat
 	const viewEntity_t* 	space;
 	const idMaterial* 		material;			// may be NULL for shadow volumes
@@ -121,8 +121,6 @@ struct drawSurf_t
 	drawSurf_t* 			nextOnLight;		// viewLight chains
 	drawSurf_t** 			linkChain;			// defer linking to lights to a serial section to avoid a mutex
 	idScreenRect			scissorRect;		// for scissor clipping, local inside renderView viewport
-	int						renderZFail;
-	volatile shadowVolumeState_t shadowVolumeState;
 };
 
 // areas have references to hold all the lights and entities in them
@@ -395,6 +393,11 @@ struct viewLight_t
 	bool					parallel;					// lightCenter gives the direction to the light at infinity
 	idVec3					lightCenter;				// offset the lighting direction for shading and
 	int						shadowLOD;					// level of detail for shadowmap selection
+	float					shadowFadeOut;				// blending from last shadow LOD to invisible
+	idRenderMatrix			shadowV[6];					// shadow depth view matrix for lighting pass
+	idRenderMatrix			shadowP[6];					// shadow depth projection matrix for lighting pass
+	idVec2i					imageSize;
+	idVec2i					imageAtlasOffset[6];
 	// RB end
 	idRenderMatrix			inverseBaseLightProject;	// the matrix for deforming the 'zeroOneCubeModel' to exactly cover the light volume in world space
 	const idMaterial* 		lightShader;				// light shader used by backend
@@ -407,8 +410,10 @@ struct viewLight_t
 	drawSurf_t* 			globalInteractions;			// get shadows from everything
 	drawSurf_t* 			translucentInteractions;	// translucent interactions don't get shadows
 
-	// R_AddSingleLight will build a chain of parameters here to setup shadow volumes
-	preLightShadowVolumeParms_t* 	preLightShadowVolumes;
+	bool					ImageAtlasPlaced() const
+	{
+		return ( imageSize.x != -1 ) && ( imageSize.y != -1 );
+	}
 };
 
 // a viewEntity is created whenever a idRenderEntityLocal is considered for inclusion
@@ -442,6 +447,7 @@ struct viewEntity_t
 	float					modelViewMatrix[16];	// local coords to eye coords
 
 	idRenderMatrix			mvp;
+	idRenderMatrix			unjitteredMVP;			// no TAA subpixel jittering
 
 	// parallelAddModels will build a chain of surfaces here that will need to
 	// be linked to the lights or added to the drawsurf list in a serial code section
@@ -457,10 +463,6 @@ struct viewEntity_t
 	idVec3					lightGridSize;
 	int						lightGridBounds[3];
 	// RB end
-
-	// R_AddSingleModel will build a chain of parameters here to setup shadow volumes
-	staticShadowVolumeParms_t* 		staticShadowVolumes;
-	dynamicShadowVolumeParms_t* 	dynamicShadowVolumes;
 };
 
 // RB: viewEnvprobes are allocated on the frame temporary stack memory
@@ -577,6 +579,9 @@ struct viewDef_t
 	idRenderMatrix		projectionRenderMatrix;	// tech5 version of projectionMatrix
 
 	// RB begin
+	float				unjitteredProjectionMatrix[16];		// second version without TAA subpixel jittering
+	idRenderMatrix		unjitteredProjectionRenderMatrix;
+
 	float				unprojectionToCameraMatrix[16];
 	idRenderMatrix		unprojectionToCameraRenderMatrix;
 
@@ -655,7 +660,7 @@ struct viewDef_t
 	idImage* 			radianceImages[3];			// cubemap image used for specular IBL by backend
 	idVec4				radianceImageBlends;		// blending weights
 
-	Framebuffer*		targetRender;				// The framebuffer to render to
+	Framebuffer*		targetRender;				// SP: The framebuffer to render to
 };
 
 
@@ -809,10 +814,54 @@ enum vertexLayoutType_t
 {
 	LAYOUT_UNKNOWN = 0,	// RB: TODO -1
 	LAYOUT_DRAW_VERT,
-	LAYOUT_DRAW_SHADOW_VERT,
-	LAYOUT_DRAW_SHADOW_VERT_SKINNED,
-	LAYOUT_DRAW_IMGUI_VERT,
+	LAYOUT_DRAW_IMGUI_VERT, // unused
 	NUM_VERTEX_LAYOUTS
+};
+
+enum bindingLayoutType_t
+{
+	// REGULAR AND SKINNED VERSIONS
+	BINDING_LAYOUT_DEFAULT,
+	BINDING_LAYOUT_DEFAULT_SKINNED,
+
+	BINDING_LAYOUT_CONSTANT_BUFFER_ONLY,
+	BINDING_LAYOUT_CONSTANT_BUFFER_ONLY_SKINNED,
+
+	BINDING_LAYOUT_AMBIENT_LIGHTING_IBL,
+	BINDING_LAYOUT_AMBIENT_LIGHTING_IBL_SKINNED,
+
+	BINDING_LAYOUT_DRAW_INTERACTION,
+	BINDING_LAYOUT_DRAW_INTERACTION_SKINNED,
+	BINDING_LAYOUT_DRAW_INTERACTION_SM,
+	BINDING_LAYOUT_DRAW_INTERACTION_SM_SKINNED,
+
+	BINDING_LAYOUT_FOG,
+	BINDING_LAYOUT_FOG_SKINNED,
+	BINDING_LAYOUT_BLENDLIGHT,
+	BINDING_LAYOUT_BLENDLIGHT_SKINNED,
+
+	BINDING_LAYOUT_NORMAL_CUBE,
+	BINDING_LAYOUT_NORMAL_CUBE_SKINNED,
+
+	// NO GPU SKINNING ANYMORE
+	BINDING_LAYOUT_POST_PROCESS_INGAME,
+	BINDING_LAYOUT_POST_PROCESS_FINAL,
+
+	BINDING_LAYOUT_BLIT,
+	BINDING_LAYOUT_DRAW_AO,
+	BINDING_LAYOUT_DRAW_AO1,
+
+	BINDING_LAYOUT_BINK_VIDEO,
+
+	// NVRHI render passes specific
+	BINDING_LAYOUT_TAA_MOTION_VECTORS,
+	BINDING_LAYOUT_TAA_RESOLVE,
+
+	BINDING_LAYOUT_TONEMAP,
+	BINDING_LAYOUT_HISTOGRAM,
+	BINDING_LAYOUT_EXPOSURE,
+
+	NUM_BINDING_LAYOUTS
 };
 
 class idParallelJobList;
@@ -841,7 +890,7 @@ public:
 		return bInitialized;
 	}
 	virtual void			ResetGuiModels();
-	virtual void			InitOpenGL();
+	virtual void			InitBackend();
 	virtual void			ShutdownOpenGL();
 	virtual bool			IsOpenGLRunning() const;
 	virtual bool			IsFullScreen() const;
@@ -874,8 +923,8 @@ public:
 	virtual uint32			GetColor();
 	virtual void			SetGLState( const uint64 glState ) ;
 	virtual void			DrawFilled( const idVec4& color, float x, float y, float w, float h );
-	virtual void			DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial* material );
-	virtual void			DrawStretchPic( const idVec4& topLeft, const idVec4& topRight, const idVec4& bottomRight, const idVec4& bottomLeft, const idMaterial* material );
+	virtual void			DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial* material, float z = 0.0f );
+	virtual void			DrawStretchPic( const idVec4& topLeft, const idVec4& topRight, const idVec4& bottomRight, const idVec4& bottomLeft, const idMaterial* material, float z = 0.0f );
 	virtual void			DrawStretchTri( const idVec2& p1, const idVec2& p2, const idVec2& p3, const idVec2& t1, const idVec2& t2, const idVec2& t3, const idMaterial* material );
 	virtual idDrawVert* 	AllocTris( int numVerts, const triIndex_t* indexes, int numIndexes, const idMaterial* material, const stereoDepthType_t stereoType = STEREO_DEPTH_TYPE_NONE );
 	virtual void			DrawSmallChar( int x, int y, int ch );
@@ -888,13 +937,18 @@ public:
 	virtual void			DrawDemoPics();
 	virtual const emptyCommand_t* 	SwapCommandBuffers( uint64* frontEndMicroSec, uint64* backEndMicroSec, uint64* shadowMicroSec, uint64* gpuMicroSec, backEndCounters_t* bc, performanceCounters_t* pc );
 
-	virtual void			SwapCommandBuffers_FinishRendering( uint64* frontEndMicroSec, uint64* backEndMicroSec, uint64* shadowMicroSec, uint64* gpuMicroSec, backEndCounters_t* bc, performanceCounters_t* pc );
+	virtual void					SwapCommandBuffers_FinishRendering( uint64* frontEndMicroSec, uint64* backEndMicroSec, uint64* shadowMicroSec, uint64* gpuMicroSec, backEndCounters_t* bc, performanceCounters_t* pc );
 	virtual const emptyCommand_t* 	SwapCommandBuffers_FinishCommandBuffers();
 
 	virtual void			RenderCommandBuffers( const emptyCommand_t* commandBuffers );
-	virtual void			TakeScreenshot( int width, int height, const char* fileName, int downSample, renderView_t* ref, int exten );
+	virtual void			TakeScreenshot( int width, int height, const char* fileName, renderView_t* ref );
+	virtual bool			IsTakingScreenshot()
+	{
+		return takingScreenshot;
+	}
 	virtual byte*			CaptureRenderToBuffer( int width, int height, renderView_t* ref );
 	virtual void			CropRenderSize( int width, int height );
+	virtual void            CropRenderSize( int x, int y, int width, int height, bool topLeftAncor );
 	virtual void			CaptureRenderToImage( const char* imageName, bool clearColorAfterCopy = false );
 	virtual void			CaptureRenderToFile( const char* fileName, bool fixAlpha );
 	virtual void			UnCrop();
@@ -905,6 +959,16 @@ public:
 	void					SetInitialized()
 	{
 		bInitialized = true;
+	}
+
+	void					InvalidateSwapBuffers()
+	{
+		omitSwapBuffers = true;
+	}
+
+	void					SetReadyToPresent()
+	{
+		omitSwapBuffers = false;
 	}
 
 public:
@@ -926,6 +990,9 @@ public:
 
 public:
 	// renderer globals
+
+	nvrhi::CommandListHandle commandList;
+
 	bool					registered;		// cleared at shutdown, set at InitOpenGL
 
 	bool					takingScreenshot;
@@ -1003,6 +1070,7 @@ public:
 
 private:
 	bool					bInitialized;
+	bool					omitSwapBuffers;
 };
 
 extern idRenderSystemLocal	tr;
@@ -1017,11 +1085,7 @@ extern idCVar r_windowWidth;
 extern idCVar r_windowHeight;
 
 extern idCVar r_debugContext;				// enable various levels of context debug
-extern idCVar r_glDriver;					// "opengl32", etc
-// SRS - Added cvar to control workarounds for AMD OSX driver bugs when shadow mapping enabled
-extern idCVar r_skipAMDWorkarounds;         // skip work arounds for AMD driver bugs
-// SRS end
-extern idCVar r_skipIntelWorkarounds;		// skip work arounds for Intel driver bugs
+extern idCVar r_useValidationLayers;
 extern idCVar r_vidMode;					// video mode number
 extern idCVar r_displayRefresh;				// optional display refresh rate option for vid mode
 extern idCVar r_fullscreen;					// 0 = windowed, 1 = full screen
@@ -1033,7 +1097,6 @@ extern idCVar r_swapInterval;				// changes wglSwapIntarval
 extern idCVar r_offsetFactor;				// polygon offset parameter
 extern idCVar r_offsetUnits;				// polygon offset parameter
 extern idCVar r_singleTriangle;				// only draw a single triangle per primitive
-extern idCVar r_logFile;					// number of frames to emit GL logs
 extern idCVar r_clear;						// force screen clear every frame
 extern idCVar r_subviewOnly;				// 1 = don't render main view, allowing subviews to be debugged
 extern idCVar r_lightScale;					// all light intensities are multiplied by this, which is normally 3
@@ -1056,7 +1119,6 @@ extern idCVar r_useLightPortalCulling;		// 0 = none, 1 = box, 2 = exact clip of 
 extern idCVar r_useLightAreaCulling;		// 0 = off, 1 = on
 extern idCVar r_useLightScissors;			// 1 = use custom scissor rectangle for each light
 extern idCVar r_useEntityPortalCulling;		// 0 = none, 1 = box
-extern idCVar r_skipPrelightShadows;		// 1 = skip the dmap generated static shadow volumes
 extern idCVar r_useCachedDynamicModels;		// 1 = cache snapshots of dynamic models
 extern idCVar r_useScissor;					// 1 = scissor clip as portals and lights are processed
 extern idCVar r_usePortals;					// 1 = use portals to perform area culling, otherwise draw everything
@@ -1066,10 +1128,7 @@ extern idCVar r_lightAllBackFaces;			// light all the back faces, even when they
 extern idCVar r_useLightDepthBounds;		// use depth bounds test on lights to reduce both shadow and interaction fill
 extern idCVar r_useShadowDepthBounds;		// use depth bounds test on individual shadows to reduce shadow fill
 // RB begin
-extern idCVar r_useShadowMapping;			// use shadow mapping instead of stencil shadows
-extern idCVar r_useHalfLambertLighting;		// use Half-Lambert lighting instead of classic Lambert
-extern idCVar r_useHDR;
-extern idCVar r_useSeamlessCubeMap;
+extern idCVar r_useShadowAtlas;				// temporary for perf testing: pack shadow maps into big atlas
 // RB end
 
 extern idCVar r_skipStaticInteractions;		// skip interactions created at level load
@@ -1082,7 +1141,6 @@ extern idCVar r_skipFrontEnd;				// bypasses all front end work, but 2D gui rend
 extern idCVar r_skipBackEnd;				// don't draw anything
 extern idCVar r_skipCopyTexture;			// do all rendering, but don't actually copyTexSubImage2D
 extern idCVar r_skipRender;					// skip 3D rendering, but pass 2D
-extern idCVar r_skipRenderContext;			// NULL the rendering context during backend 3D rendering
 extern idCVar r_skipTranslucent;			// skip the translucent interaction rendering
 extern idCVar r_skipAmbient;				// bypasses all non-interaction drawing
 extern idCVar r_skipNewAmbient;				// bypasses all vertex/fragment program ambients
@@ -1152,7 +1210,6 @@ extern idCVar r_singleSurface;				// suppress all but one surface on each entity
 extern idCVar r_shadowPolygonOffset;		// bias value added to depth test for stencil shadow drawing
 extern idCVar r_shadowPolygonFactor;		// scale value for stencil shadow drawing
 
-extern idCVar r_jitter;						// randomly subpixel jitter the projection matrix
 extern idCVar r_orderIndexes;				// perform index reorganization to optimize vertex use
 
 extern idCVar r_debugLineDepthTest;			// perform depth test on debug lines
@@ -1170,11 +1227,12 @@ extern idCVar stereoRender_deGhost;			// subtract from opposite eye to reduce gh
 extern idCVar r_useGPUSkinning;
 
 // RB begin
+extern idCVar r_shadowMapAtlasSize;
 extern idCVar r_shadowMapFrustumFOV;
 extern idCVar r_shadowMapSingleSide;
 extern idCVar r_shadowMapImageSize;
 extern idCVar r_shadowMapJitterScale;
-extern idCVar r_shadowMapBiasScale;
+//extern idCVar r_shadowMapBiasScale;
 extern idCVar r_shadowMapRandomizeJitter;
 extern idCVar r_shadowMapSamples;
 extern idCVar r_shadowMapSplits;
@@ -1204,10 +1262,6 @@ extern idCVar r_ldrContrastOffset;
 extern idCVar r_useFilmicPostProcessing;
 extern idCVar r_forceAmbient;
 
-extern idCVar r_useSSGI;
-extern idCVar r_ssgiDebug;
-extern idCVar r_ssgiFiltering;
-
 extern idCVar r_useSSAO;
 extern idCVar r_ssaoDebug;
 extern idCVar r_ssaoFiltering;
@@ -1221,6 +1275,14 @@ extern idCVar r_showLightGrid;				// show Quake 3 style light grid points
 extern idCVar r_useLightGrid;
 
 extern idCVar r_exposure;
+
+extern idCVar r_useTemporalAA;
+extern idCVar r_taaJitter;
+extern idCVar r_taaEnableHistoryClamping;
+extern idCVar r_taaClampingFactor;
+extern idCVar r_taaNewFrameWeight;
+extern idCVar r_taaMaxRadiance;
+extern idCVar r_taaMotionVectors;
 // RB end
 
 /*
@@ -1231,11 +1293,25 @@ INITIALIZATION
 ====================================================================
 */
 
+bool R_UseTemporalAA();
+
+uint R_GetMSAASamples();
+
 void R_SetNewMode( const bool fullInit );
 
 void R_SetColorMappings();
 
 void R_ScreenShot_f( const idCmdArgs& args );
+
+/*
+====================================================================
+
+NVRHI helpers
+
+====================================================================
+*/
+bool R_ReadPixelsRGB8( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nvrhi::ITexture* texture, nvrhi::ResourceStates textureState, const char* fullname );
+bool R_ReadPixelsRGB16F( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nvrhi::ITexture* texture, nvrhi::ResourceStates textureState, byte** pic, int picWidth, int picHeight );
 
 /*
 ====================================================================
@@ -1282,6 +1358,7 @@ struct glimpParms_t
 	int			height;
 	int			fullScreen;		// 0 = windowed, otherwise 1 based monitor number to go full screen on
 	// -1 = borderless window for spanning multiple displays
+	bool		startMaximized = false;
 	bool		stereo;
 	int			displayHz;
 	int			multiSamples;
@@ -1289,14 +1366,12 @@ struct glimpParms_t
 
 // Eric: If on Linux using Vulkan use the sdl_vkimp.cpp methods
 // SRS - Generalized Vulkan SDL platform
-#if defined(VULKAN_USE_PLATFORM_SDL)
+#if defined( VULKAN_USE_PLATFORM_SDL )
 #include <vector>
 
 #define CLAMP(x, lo, hi)    ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 // Helper function for using SDL2 and Vulkan on Linux.
 std::vector<const char*> get_required_extensions();
-
-extern vulkanContext_t vkcontext;
 
 // DG: R_GetModeListForDisplay is called before GLimp_Init(), but SDL needs SDL_Init() first.
 // So add PreInit for platforms that need it, others can just stub it.
@@ -1462,7 +1537,7 @@ idRenderModel* R_EntityDefDynamicModel( idRenderEntityLocal* def );
 void R_ClearEntityDefDynamicModel( idRenderEntityLocal* def );
 
 void R_SetupDrawSurfShader( drawSurf_t* drawSurf, const idMaterial* shader, const renderEntity_t* renderEntity );
-void R_SetupDrawSurfJoints( drawSurf_t* drawSurf, const srfTriangles_t* tri, const idMaterial* shader );
+void R_SetupDrawSurfJoints( drawSurf_t* drawSurf, const srfTriangles_t* tri, const idMaterial* shader, nvrhi::ICommandList* commandList = nullptr );
 void R_LinkDrawSurfToView( drawSurf_t* drawSurf, viewDef_t* viewDef );
 
 void R_AddModels();
@@ -1512,10 +1587,8 @@ TR_TRISURF
 srfTriangles_t* 	R_AllocStaticTriSurf();
 void				R_AllocStaticTriSurfVerts( srfTriangles_t* tri, int numVerts );
 void				R_AllocStaticTriSurfIndexes( srfTriangles_t* tri, int numIndexes );
-void				R_AllocStaticTriSurfPreLightShadowVerts( srfTriangles_t* tri, int numVerts );
 void				R_AllocStaticTriSurfSilIndexes( srfTriangles_t* tri, int numIndexes );
 void				R_AllocStaticTriSurfDominantTris( srfTriangles_t* tri, int numVerts );
-void				R_AllocStaticTriSurfSilEdges( srfTriangles_t* tri, int numSilEdges );
 void				R_AllocStaticTriSurfMirroredVerts( srfTriangles_t* tri, int numMirroredVerts );
 void				R_AllocStaticTriSurfDupVerts( srfTriangles_t* tri, int numDupVerts );
 
@@ -1552,11 +1625,11 @@ srfTriangles_t* 	R_MergeTriangles( const srfTriangles_t* tri1, const srfTriangle
 void				R_DeriveTangents( srfTriangles_t* tri );
 
 // copy data from a front-end srfTriangles_t to a back-end drawSurf_t
-void				R_InitDrawSurfFromTri( drawSurf_t& ds, srfTriangles_t& tri );
+void				R_InitDrawSurfFromTri( drawSurf_t& ds, srfTriangles_t& tri, nvrhi::ICommandList* commandList );
 
 // For static surfaces, the indexes, ambient, and shadow buffers can be pre-created at load
 // time, rather than being re-created each frame in the frame temporary buffers.
-void				R_CreateStaticBuffersForTri( srfTriangles_t& tri );
+void				R_CreateStaticBuffersForTri( srfTriangles_t& tri, nvrhi::ICommandList* commandList );
 
 // RB
 idVec3				R_ClosestPointPointTriangle( const idVec3& point, const idVec3& vertex1, const idVec3& vertex2, const idVec3& vertex3 );
@@ -1584,18 +1657,16 @@ struct deformInfo_t
 	int					numDupVerts;			// number of duplicate vertexes
 	int* 				dupVerts;				// pairs of the number of the first vertex and the number of the duplicate vertex
 
-	int					numSilEdges;			// number of silhouette edges
-	silEdge_t* 			silEdges;				// silhouette edges
-
 	vertCacheHandle_t	staticIndexCache;		// GL_INDEX_TYPE
 	vertCacheHandle_t	staticAmbientCache;		// idDrawVert
-	vertCacheHandle_t	staticShadowCache;		// idShadowCacheSkinned
+//	vertCacheHandle_t	staticShadowCache;		// idShadowCacheSkinned
 };
 
 
 // if outputVertexes is not NULL, it will point to a newly allocated set of verts that includes the mirrored ones
 deformInfo_t* 		R_BuildDeformInfo( int numVerts, const idDrawVert* verts, int numIndexes, const int* indexes,
 									   bool useUnsmoothedTangents );
+void				R_CreateDeformStaticVertices( deformInfo_t* deform, nvrhi::ICommandList* commandList );
 void				R_FreeDeformInfo( deformInfo_t* deformInfo );
 int					R_DeformInfoMemoryUsed( deformInfo_t* deformInfo );
 
@@ -1656,10 +1727,6 @@ void RB_SetVertexColorParms( stageVertexColor_t svc );
 
 #include "ResolutionScale.h"
 #include "RenderLog.h"
-#include "jobs/ShadowShared.h"
-#include "jobs/prelightshadowvolume/PreLightShadowVolume.h"
-#include "jobs/staticshadowvolume/StaticShadowVolume.h"
-#include "jobs/dynamicshadowvolume/DynamicShadowVolume.h"
 #include "GLMatrix.h"
 
 #include "BufferObject.h"

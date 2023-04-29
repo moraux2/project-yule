@@ -4,7 +4,8 @@
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2016-2017 Dustin Land
-Copyright (C) 2017-2020 Robert Beckebans
+Copyright (C) 2017-2023 Robert Beckebans
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -33,13 +34,21 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "RenderLog.h"
 
-bool			GL_CheckErrors_( const char* filename, int line );
-#if 1 // !defined(RETAIL)
-	#define         GL_CheckErrors()	GL_CheckErrors_(__FILE__, __LINE__)
+#include "Passes/CommonPasses.h"
+#include "Passes/MipMapGenPass.h"
+#include "Passes/FowardShadingPass.h"
+#include "Passes/SsaoPass.h"
+#include "Passes/TonemapPass.h"
+#include "Passes/TemporalAntiAliasingPass.h"
+
+#include "PipelineCache.h"
+
+
+#if USE_OPTICK
+	#define USE_OPTICK_GPU 0
 #else
-	#define         GL_CheckErrors()	false
+	#define USE_OPTICK_GPU 0
 #endif
-// RB end
 
 struct tmu_t
 {
@@ -104,139 +113,6 @@ struct debugPolygon_t
 
 void RB_SetMVP( const idRenderMatrix& mvp );
 void RB_SetVertexColorParms( stageVertexColor_t svc );
-//void RB_GetShaderTextureMatrix( const float* shaderRegisters, const textureStage_t* texture, float matrix[16] );
-//void RB_LoadShaderTextureMatrix( const float* shaderRegisters, const textureStage_t* texture );
-//void RB_BakeTextureMatrixIntoTexgen( idPlane lightProject[3], const float* textureMatrix );
-
-//bool ChangeDisplaySettingsIfNeeded( gfxImpParms_t parms );
-//bool CreateGameWindow( gfxImpParms_t parms );
-
-#if defined( USE_VULKAN )
-
-// SRS - Generalized Vulkan SDL platform
-#if defined(VULKAN_USE_PLATFORM_SDL)
-	#include <SDL.h>
-	#include <SDL_vulkan.h>
-#endif
-
-struct gpuInfo_t
-{
-	VkPhysicalDevice					device;
-	VkPhysicalDeviceProperties			props;
-	VkPhysicalDeviceMemoryProperties	memProps;
-	VkSurfaceCapabilitiesKHR			surfaceCaps;
-	idList< VkSurfaceFormatKHR >		surfaceFormats;
-	idList< VkPresentModeKHR >			presentModes;
-	idList< VkQueueFamilyProperties >	queueFamilyProps;
-	idList< VkExtensionProperties >		extensionProps;
-};
-
-struct vulkanContext_t
-{
-	// Eric: If on linux, use this to pass SDL_Window pointer to the SDL_Vulkan_* methods not in sdl_vkimp.cpp file.
-// SRS - Generalized Vulkan SDL platform
-#if defined(VULKAN_USE_PLATFORM_SDL)
-	SDL_Window*						sdlWindow = nullptr;
-#endif
-	uint64							frameCounter;
-	uint32							frameParity;
-
-	vertCacheHandle_t				jointCacheHandle;
-
-	VkInstance						instance;
-
-	// selected physical device
-	VkPhysicalDevice				physicalDevice;
-	VkPhysicalDeviceFeatures		physicalDeviceFeatures;
-
-	// logical device
-	VkDevice						device;
-
-	VkQueue							graphicsQueue;
-	VkQueue							presentQueue;
-	int								graphicsFamilyIdx;
-	int								presentFamilyIdx;
-	VkDebugReportCallbackEXT		callback;
-
-	idList< const char* >			instanceExtensions;
-	idList< const char* >			deviceExtensions;
-	idList< const char* >			validationLayers;
-
-	bool							debugMarkerSupportAvailable;
-	bool							debugUtilsSupportAvailable;
-	bool                            deviceProperties2Available;     // SRS - For getting device properties in support of gfxInfo
-
-	// selected GPU
-	gpuInfo_t* 						gpu;
-
-	// all GPUs found on the system
-	idList< gpuInfo_t >				gpus;
-
-	VkCommandPool					commandPool;
-	idArray< VkCommandBuffer, NUM_FRAME_DATA >	commandBuffer;
-	idArray< VkFence, NUM_FRAME_DATA >			commandBufferFences;
-	idArray< bool, NUM_FRAME_DATA >				commandBufferRecorded;
-
-	VkSurfaceKHR					surface;
-	VkPresentModeKHR				presentMode;
-	VkFormat						depthFormat;
-	VkRenderPass					renderPass;
-	VkPipelineCache					pipelineCache;
-	VkSampleCountFlagBits			sampleCount;
-	bool							supersampling;
-
-	int								fullscreen;
-	VkSwapchainKHR					swapchain;
-	VkFormat						swapchainFormat;
-	VkExtent2D						swapchainExtent;
-	uint32							currentSwapIndex;
-	VkImage							msaaImage;
-	VkImageView						msaaImageView;
-#if defined( USE_AMD_ALLOCATOR )
-	VmaAllocation					msaaVmaAllocation;
-	VmaAllocationInfo				msaaAllocation;
-#else
-	vulkanAllocation_t				msaaAllocation;
-#endif
-	idArray< VkImage, NUM_FRAME_DATA >			swapchainImages;
-	idArray< VkImageView, NUM_FRAME_DATA >		swapchainViews;
-
-	idArray< VkFramebuffer, NUM_FRAME_DATA >	frameBuffers;
-	idArray< VkSemaphore, NUM_FRAME_DATA >		acquireSemaphores;
-	idArray< VkSemaphore, NUM_FRAME_DATA >		renderCompleteSemaphores;
-
-	int											currentImageParm;
-	idArray< idImage*, MAX_IMAGE_PARMS >		imageParms;
-
-	//typedef uint32 QueryTuple[2];
-
-	// GPU timestamp queries
-	idArray< uint32, NUM_FRAME_DATA >									queryIndex;
-	idArray< idArray< uint32, MRB_TOTAL_QUERIES >, NUM_FRAME_DATA >		queryAssignedIndex;
-	idArray< idArray< uint64, NUM_TIMESTAMP_QUERIES >, NUM_FRAME_DATA >	queryResults;
-	idArray< VkQueryPool, NUM_FRAME_DATA >		queryPools;
-};
-
-extern vulkanContext_t vkcontext;
-
-#else //if defined( ID_OPENGL )
-
-struct glContext_t
-{
-	uint64		frameCounter;
-	uint32		frameParity;
-
-	tmu_t		tmu[ MAX_MULTITEXTURE_UNITS ];
-	uint64		stencilOperations[ STENCIL_FACE_NUM ];
-
-	// for GL_TIME_ELAPSED_EXT queries
-	GLuint		renderLogMainBlockTimeQueryIds[ NUM_FRAME_DATA ][ MRB_TOTAL_QUERIES ];
-	uint32		renderLogMainBlockTimeQueryIssued[ NUM_FRAME_DATA ][ MRB_TOTAL_QUERIES ];
-};
-
-extern glContext_t glcontext;
-
-#endif
 
 /*
 ===========================================================================
@@ -249,9 +125,13 @@ all state modified by the back end is separated from the front end state
 */
 struct ImDrawData;
 
+class IRenderPass;
+class ForwardShadingPass;
+
 class idRenderBackend
 {
 	friend class Framebuffer;
+	friend class fhImmediateMode;
 
 public:
 	idRenderBackend();
@@ -267,14 +147,18 @@ public:
 	void				Print();
 	void				CheckCVars();
 
+	void				ClearCaches();
+
 	static void			ImGui_Init();
 	static void			ImGui_Shutdown();
 	static void			ImGui_RenderDrawLists( ImDrawData* draw_data );
 
+	void				DrawElementsWithCounters( const drawSurf_t* surf, bool shadowCounter = false );
+
 private:
 	void				DrawFlickerBox();
 
-	void				DrawElementsWithCounters( const drawSurf_t* surf );
+	void				GetCurrentBindingLayout( int bindingLayoutType );
 	void				DrawStencilShadowPass( const drawSurf_t* drawSurf, const bool renderZPass );
 
 	void				SetColorMappings();
@@ -284,7 +168,7 @@ private:
 	void				DrawView( const void* data, const int stereoEye );
 	void				CopyRender( const void* data );
 
-	void				BindVariableStageImage( const textureStage_t* texture, const float* shaderRegisters );
+	void				BindVariableStageImage( const textureStage_t* texture, const float* shaderRegisters, nvrhi::ICommandList* commandList );
 	void				PrepareStageTexturing( const shaderStage_t* pStage, const drawSurf_t* surf );
 	void				FinishStageTexturing( const shaderStage_t* pStage, const drawSurf_t* surf );
 
@@ -311,20 +195,24 @@ private:
 
 	// RB
 	void				AmbientPass( const drawSurf_t* const* drawSurfs, int numDrawSurfs, bool fillGbuffer );
-	void				ShadowMapPass( const drawSurf_t* drawSurfs, const viewLight_t* vLight, int side );
+
+	void				SetupShadowMapMatrices( viewLight_t* vLight, int side, idRenderMatrix& lightProjectionRenderMatrix, idRenderMatrix& lightViewRenderMatrix );
+	void				ShadowMapPassFast( const drawSurf_t* drawSurfs, viewLight_t* vLight, int side, bool atlas );
+	void				ShadowMapPassPerforated( const drawSurf_t** drawSurfs, int numDrawSurfs, viewLight_t* vLight, int side, const idRenderMatrix& lightProjectionRenderMatrix, const idRenderMatrix& lightViewRenderMatrix );
+
+	void				ShadowAtlasPass( const viewDef_t* _viewDef );
 
 	void				StencilShadowPass( const drawSurf_t* drawSurfs, const viewLight_t* vLight );
 	void				StencilSelectLight( const viewLight_t* vLight );
 
-	// RB: HDR stuff
+	void				DrawMotionVectors();
+	void				TemporalAAPass( const viewDef_t* _viewDef );
 
-	// TODO optimize and replace with compute shader
-	void				CalculateAutomaticExposure();
-	void				Tonemap( const viewDef_t* viewDef );
+	// RB: outdated HDR stuff
 	void				Bloom( const viewDef_t* viewDef );
 
-	void				DrawScreenSpaceAmbientOcclusion( const viewDef_t* _viewDef, bool downModulateScreen );
-	void				DrawScreenSpaceGlobalIllumination( const viewDef_t* _viewDef );
+	void				DrawScreenSpaceAmbientOcclusion( const viewDef_t* _viewDef );
+	void				DrawScreenSpaceAmbientOcclusion2( const viewDef_t* _viewDef );
 
 	// Experimental feature
 	void				MotionBlur();
@@ -336,6 +224,13 @@ private:
 
 public:
 	uint64				GL_GetCurrentState() const;
+	idVec2				GetCurrentPixelOffset() const;
+
+	nvrhi::ICommandList* GL_GetCommandList() const
+	{
+		return commandList;
+	}
+
 private:
 	uint64				GL_GetCurrentStateMinusStencil() const;
 	void				GL_SetDefaultState();
@@ -350,7 +245,7 @@ private:
 //	void				GL_CopyDepthBuffer( idImage* image, int x, int y, int imageWidth, int imageHeight );
 
 	// RB: HDR parm
-	void				GL_Clear( bool color, bool depth, bool stencil, byte stencilValue, float r, float g, float b, float a, bool clearHDR = true );
+	void				GL_Clear( bool color, bool depth, bool stencil, byte stencilValue, float r, float g, float b, float a, bool clearHDR = false );
 
 	void				GL_DepthBoundsTest( const float zmin, const float zmax );
 	void				GL_PolygonOffset( float scale, float bias );
@@ -453,6 +348,9 @@ public:
 	drawSurf_t			zeroOneSphereSurface; // RB
 	drawSurf_t			testImageSurface;
 
+	float				slopeScaleBias;
+	float				depthBias;
+
 private:
 	uint64				glStateBits;
 
@@ -464,37 +362,66 @@ private:
 	bool				currentRenderCopied;	// true if any material has already referenced _currentRender
 
 	idRenderMatrix		prevMVP[2];				// world MVP from previous frame for motion blur
+	bool				prevViewsValid;
 
 	// RB begin
-	idRenderMatrix		shadowV[6];				// shadow depth view matrix
-	idRenderMatrix		shadowP[6];				// shadow depth projection matrix
-
+	// TODO remove
 	float				hdrAverageLuminance;
 	float				hdrMaxLuminance;
 	float				hdrTime;
 	float				hdrKey;
-	// RB end
+
+	// quad-tree for managing tiles within tiled shadow map
+	TileMap				tileMap;
 
 private:
-#if !defined( USE_VULKAN )
-	int					currenttmu;
+	idScreenRect					stateViewport;
+	idScreenRect					stateScissor;
 
-	unsigned int		currentVertexBuffer;
-	unsigned int		currentIndexBuffer;
-	Framebuffer*		currentFramebuffer;		// RB: for offscreen rendering
+	idScreenRect					currentViewport;
+	nvrhi::BufferHandle				currentVertexBuffer;
+	uint							currentVertexOffset;
+	nvrhi::BufferHandle				currentIndexBuffer;
+	uint							currentIndexOffset;
+	nvrhi::BindingLayoutHandle		currentBindingLayout;
+	nvrhi::IBuffer*					currentJointBuffer;
+	uint							currentJointOffset;
+	nvrhi::GraphicsPipelineHandle	currentPipeline;
 
-	vertexLayoutType_t	vertexLayout;
+	idStaticList<nvrhi::BindingSetHandle, nvrhi::c_MaxBindingLayouts> currentBindingSets;
+	idStaticList<idStaticList<nvrhi::BindingSetDesc, nvrhi::c_MaxBindingLayouts>, NUM_BINDING_LAYOUTS> pendingBindingSetDescs;
 
-	float				polyOfsScale;
-	float				polyOfsBias;
+	Framebuffer*					currentFrameBuffer;
+	Framebuffer*					lastFrameBuffer;
+	nvrhi::CommandListHandle		commandList;
+	CommonRenderPasses				commonPasses;
+	SsaoPass*						ssaoPass;
+	MipMapGenPass*					hiZGenPass;
+	TonemapPass*					toneMapPass;
+	TemporalAntiAliasingPass*		taaPass;
+
+	BindingCache					bindingCache;
+	SamplerCache					samplerCache;
+	PipelineCache					pipelineCache;
+
+	nvrhi::InputLayoutHandle		inputLayout;
+
+	nvrhi::ShaderHandle             vertexShader;
+	nvrhi::ShaderHandle             pixelShader;
+
+	int								prevBindingLayoutType;
 
 public:
-	int					GetCurrentTextureUnit() const
-	{
-		return currenttmu;
-	}
 
-#endif // !defined( USE_VULKAN )
+	void				ResetPipelineCache();
+
+	void				SetCurrentImage( idImage* image );
+	idImage*			GetCurrentImage();
+	idImage*			GetImageAt( int index );
+	CommonRenderPasses& GetCommonPasses()
+	{
+		return commonPasses;
+	}
 };
 
 #endif

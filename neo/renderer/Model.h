@@ -44,10 +44,10 @@ If you have questions concerning this license or the applicable additional terms
 #define MD5_CAMERA_EXT			"md5camera"
 #define MD5_VERSION				10
 
-#include "jobs/ShadowShared.h"
-#include "jobs/prelightshadowvolume/PreLightShadowVolume.h"
-#include "jobs/staticshadowvolume/StaticShadowVolume.h"
-#include "jobs/dynamicshadowvolume/DynamicShadowVolume.h"
+#define GLTF_EXT				"gltf"
+#define GLTF_GLB_EXT			"glb"
+
+
 
 // this is used for calculating unsmoothed normals and tangents for deformed models
 struct dominantTri_t
@@ -59,6 +59,7 @@ struct dominantTri_t
 const int SHADOW_CAP_INFINITE	= 64;
 
 class idRenderModelStatic;
+class idImportOptions;
 struct viewDef_t;
 
 // our only drawing geometry type
@@ -89,21 +90,7 @@ struct srfTriangles_t
 	int							numDupVerts;			// number of duplicate vertexes
 	int* 						dupVerts;				// pairs of the number of the first vertex and the number of the duplicate vertex
 
-	int							numSilEdges;			// number of silhouette edges
-	silEdge_t* 					silEdges;				// silhouette edges
-
 	dominantTri_t* 				dominantTris;			// [numVerts] for deformed surface fast tangent calculation
-
-	int							numShadowIndexesNoFrontCaps;	// shadow volumes with front caps omitted
-	int							numShadowIndexesNoCaps;			// shadow volumes with the front and rear caps omitted
-
-	int							shadowCapPlaneBits;		// bits 0-5 are set when that plane of the interacting light has triangles
-	// projected on it, which means that if the view is on the outside of that
-	// plane, we need to draw the rear caps of the shadow volume
-	// dynamic shadows will have SHADOW_CAP_INFINITE
-
-	idShadowVert* 				preLightShadowVertexes;	// shadow vertices in CPU memory for pre-light shadow volumes
-	idShadowVert* 				staticShadowVertexes;	// shadow vertices in CPU memory for static shadow volumes
 
 	srfTriangles_t* 			ambientSurface;			// for light interactions, point back at the original surface that generated
 	// the interaction, which we will get the ambientCache from
@@ -118,7 +105,7 @@ struct srfTriangles_t
 	// data in vertex object space, not directly readable by the CPU
 	vertCacheHandle_t			indexCache;				// GL_INDEX_TYPE
 	vertCacheHandle_t			ambientCache;			// idDrawVert
-	vertCacheHandle_t			shadowCache;			// idVec4
+//	vertCacheHandle_t			shadowCache;			// idVec4
 
 	DISALLOW_COPY_AND_ASSIGN( srfTriangles_t );
 };
@@ -165,7 +152,7 @@ public:
 	virtual						~idRenderModel() {};
 
 	// Loads static models only, dynamic models must be loaded by the modelManager
-	virtual void				InitFromFile( const char* fileName ) = 0;
+	virtual void				InitFromFile( const char* fileName, const idImportOptions* options ) = 0;
 
 	// Supports reading/writing binary file formats
 	virtual bool				LoadBinaryModel( idFile* file, const ID_TIME_T sourceTimeStamp ) = 0;
@@ -217,6 +204,9 @@ public:
 	// will still touch their data to make sure they
 	// are kept loaded
 	virtual void				TouchData() = 0;
+
+	// uploads the static vertices and indices into the vertex cache.
+	virtual void				CreateBuffers( nvrhi::ICommandList* commandList ) = 0;
 
 	// dump any ambient caches on the model surfaces
 	virtual void				FreeVertexCache() = 0;

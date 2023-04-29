@@ -249,12 +249,14 @@ bool Init( int windowWidth, int windowHeight )
 	g_DisplaySize.y = windowHeight;
 	io.DisplaySize = g_DisplaySize;
 
-	io.RenderDrawListsFn = idRenderBackend::ImGui_RenderDrawLists;
-
 	// RB: FIXME double check
 	io.SetClipboardTextFn = SetClipboardText;
 	io.GetClipboardTextFn = GetClipboardText;
 	io.ClipboardUserData = NULL;
+
+	// SRS - store imgui.ini file in fs_savepath (not in cwd please!)
+	static idStr BFG_IniFilename = fileSystem->BuildOSPath( cvarSystem->GetCVarString( "fs_savepath" ), io.IniFilename );
+	io.IniFilename = BFG_IniFilename;
 
 	// make it a bit prettier with rounded edges
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -434,9 +436,8 @@ void Render()
 			ImGui::ShowDemoWindow();
 		}
 
-		//ImGui::End();
-
 		ImGui::Render();
+		idRenderBackend::ImGui_RenderDrawLists( ImGui::GetDrawData() );
 		g_haveNewFrame = false;
 	}
 }

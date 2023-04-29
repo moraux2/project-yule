@@ -6,6 +6,7 @@ Copyright (C) 1999-2011 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2012 dhewg (dhewm3)
 Copyright (C) 2012-2014 Robert Beckebans
 Copyright (C) 2013 Daniel Gibson
+Copyright (C) 2023 Stephen Saunders
 
 This file is part of the Doom 3 GPL Source Code ("Doom 3 Source Code").
 
@@ -41,36 +42,17 @@ If you have questions concerning this license or the applicable additional terms
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <vulkan/vulkan.h>
-// SRS - optinally needed for VK_MVK_MOLTENVK_EXTENSION_NAME visibility
-#if defined(__APPLE__) && defined(USE_MoltenVK)
-	#include <MoltenVK/vk_mvk_moltenvk.h>
-#endif
 #include <vector>
 
 #include "renderer/RenderCommon.h"
 #include "sdl_local.h"
 
+#include <sys/DeviceManager.h>
+extern DeviceManager* deviceManager;
+
 idCVar in_nograb( "in_nograb", "0", CVAR_SYSTEM | CVAR_NOCHEAT, "prevents input grabbing" );
 
-// RB: FIXME this shit. We need the OpenGL alpha channel for advanced rendering effects
-idCVar r_waylandcompat( "r_waylandcompat", "0", CVAR_SYSTEM | CVAR_NOCHEAT | CVAR_ARCHIVE, "wayland compatible framebuffer" );
-
-// RB: only relevant if using SDL 2.0
-#if defined(__APPLE__)
-	// only core profile is supported on OS X
-	idCVar r_useOpenGL32( "r_useOpenGL32", "2", CVAR_INTEGER, "0 = OpenGL 3.x, 1 = OpenGL 3.2 compatibility profile, 2 = OpenGL 3.2 core profile", 0, 2 );
-#elif defined(__linux__)
-	// Linux open source drivers suck
-	idCVar r_useOpenGL32( "r_useOpenGL32", "0", CVAR_INTEGER, "0 = OpenGL 3.x, 1 = OpenGL 3.2 compatibility profile, 2 = OpenGL 3.2 core profile", 0, 2 );
-#else
-	idCVar r_useOpenGL32( "r_useOpenGL32", "1", CVAR_INTEGER, "0 = OpenGL 3.x, 1 = OpenGL 3.2 compatibility profile, 2 = OpenGL 3.2 core profile", 0, 2 );
-#endif
-// RB end
-
 static bool grabbed = false;
-
-//vulkanContext_t vkcontext; // Eric: I added this to pass SDL_Window* window to the SDL_Vulkan_* methods that are used else were.
-
 static SDL_Window* window = nullptr;
 
 // Eric: Integrate this into RBDoom3BFG's source code ecosystem.
@@ -80,48 +62,85 @@ std::vector<const char*> get_required_extensions()
 	uint32_t                 sdlCount = 0;
 	std::vector<const char*> sdlInstanceExtensions = {};
 
-	SDL_Vulkan_GetInstanceExtensions( nullptr, &sdlCount, nullptr );
+	SDL_Vulkan_GetInstanceExtensions( window, &sdlCount, nullptr );
 	sdlInstanceExtensions.resize( sdlCount );
-	SDL_Vulkan_GetInstanceExtensions( nullptr, &sdlCount, sdlInstanceExtensions.data() );
-
-	// SRS - Report enabled instance extensions in CreateVulkanInstance() vs. doing it here
-	/*
-	if( enableValidationLayers )
-	{
-		idLib::Printf( "\nNumber of availiable instance extensions\t%i\n", sdlCount );
-		idLib::Printf( "Available Extension List: \n" );
-		for( auto ext : sdlInstanceExtensions )
-		{
-			idLib::Printf( "\t%s\n", ext );
-		}
-	}
-	*/
-
-	// SRS - needed for MoltenVK portability implementation and optionally for MoltenVK configuration on OSX
-#if defined(__APPLE__)
-	sdlInstanceExtensions.push_back( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME );
-#if defined(USE_MoltenVK)
-	sdlInstanceExtensions.push_back( VK_MVK_MOLTENVK_EXTENSION_NAME );
-#endif
-#endif
-
-	// SRS - Add debug instance extensions in CreateVulkanInstance() vs. hardcoding them here
-	/*
-	if( enableValidationLayers )
-	{
-		sdlInstanceExtensions.push_back( "VK_EXT_debug_report" );
-		sdlInstanceExtensions.push_back( "VK_EXT_debug_utils" );
-
-		idLib::Printf( "Number of active instance extensions\t%zu\n", sdlInstanceExtensions.size() );
-		idLib::Printf( "Active Extension List: \n" );
-		for( auto const& ext : sdlInstanceExtensions )
-		{
-			idLib::Printf( "\t%s\n", ext );
-		}
-	}
-	*/
+	SDL_Vulkan_GetInstanceExtensions( window, &sdlCount, sdlInstanceExtensions.data() );
 
 	return sdlInstanceExtensions;
+}
+
+// SRS - Helper method for creating SDL Vulkan surface within DeviceManager_VK() when NVRHI enabled
+vk::Result DeviceManager::CreateSDLWindowSurface( vk::Instance instance, vk::SurfaceKHR* surface )
+{
+	if( !SDL_Vulkan_CreateSurface( window, ( VkInstance )instance, ( VkSurfaceKHR* )surface ) )
+	{
+		common->Warning( "Error while creating SDL Vulkan surface: %s", SDL_GetError() );
+		return vk::Result::eErrorSurfaceLostKHR;
+	}
+
+	return vk::Result::eSuccess;
+}
+
+bool DeviceManager::CreateWindowDeviceAndSwapChain( const glimpParms_t& parms, const char* windowTitle )
+{
+	Uint32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+	if( parms.fullScreen == -1 )
+	{
+		flags |= SDL_WINDOW_BORDERLESS;
+	}
+
+	window = SDL_CreateWindow( GAME_NAME,
+							   parms.x,
+							   parms.y,
+							   parms.width, parms.height, flags );
+
+	if( !window )
+	{
+		common->Warning( "Error while creating SDL Vulkan window: %s", SDL_GetError() );
+		return false;
+	}
+
+	// RB
+	m_DeviceParams.backBufferWidth = parms.width;
+	m_DeviceParams.backBufferHeight = parms.height;
+	m_DeviceParams.backBufferSampleCount = parms.multiSamples;
+	m_DeviceParams.vsyncEnabled = m_RequestedVSync;
+
+	if( !CreateDeviceAndSwapChain() )
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void DeviceManager::UpdateWindowSize( const glimpParms_t& parms )
+{
+	m_windowVisible = true;
+
+	if( int( m_DeviceParams.backBufferWidth ) != parms.width ||
+			int( m_DeviceParams.backBufferHeight ) != parms.height ||
+#if ID_MSAA
+			int( m_DeviceParams.backBufferSampleCount ) != parms.multiSamples ||
+#endif
+			( m_DeviceParams.vsyncEnabled != m_RequestedVSync && GetGraphicsAPI() == nvrhi::GraphicsAPI::VULKAN ) )
+	{
+		// window is not minimized, and the size has changed
+
+		BackBufferResizing();
+
+		m_DeviceParams.backBufferWidth = parms.width;
+		m_DeviceParams.backBufferHeight = parms.height;
+		m_DeviceParams.backBufferSampleCount = parms.multiSamples;
+		m_DeviceParams.vsyncEnabled = m_RequestedVSync;
+
+		ResizeSwapChain();
+		BackBufferResized();
+	}
+	else
+	{
+		m_DeviceParams.vsyncEnabled = m_RequestedVSync;
+	}
 }
 
 /*
@@ -137,6 +156,10 @@ void VKimp_PreInit() // DG: added this function for SDL compatibility
 {
 	if( !SDL_WasInit( SDL_INIT_VIDEO ) )
 	{
+#if defined(__APPLE__) && SDL_VERSION_ATLEAST(2, 0, 2)
+		// SRS - Disable macOS Spaces for multi-monitor desktop in borderless fullscreen mode
+		SDL_SetHint( SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "0" );
+#endif
 		if( SDL_Init( SDL_INIT_VIDEO ) )
 		{
 			common->Error( "Error while initializing SDL: %s", SDL_GetError() );
@@ -144,8 +167,59 @@ void VKimp_PreInit() // DG: added this function for SDL compatibility
 	}
 }
 
+/*
+===================
+ Helper functions for VKimp_Init() and VKimp_SetScreenParms()
+===================
+*/
 
-/* Eric: Is the majority of this function not needed since switching from GL to Vulkan?
+// SRS - Function to get display index for both fullscreen and windowed modes
+static int GetDisplayIndex( glimpParms_t parms )
+{
+	int displayIdx = -1;
+
+	if( parms.fullScreen > 0 )
+	{
+		if( parms.fullScreen <= SDL_GetNumVideoDisplays() )
+		{
+			displayIdx = parms.fullScreen - 1; // first display for SDL is 0, in parms it's 1
+		}
+	}
+	else // 0, -1, -2 == windowed and borderless modes
+	{
+		// SRS - Find display containing the center of the bordered or borderless window, return -1 if not found
+		int windowPosX = parms.x + parms.width / 2;
+		int windowPosY = parms.y + parms.height / 2;
+
+		for( int i = 0; i < SDL_GetNumVideoDisplays(); i++ )
+		{
+			SDL_Rect rect;
+			SDL_GetDisplayBounds( i, &rect );
+			if( windowPosX >= rect.x && windowPosX < ( rect.x + rect.w ) && windowPosY >= rect.y && windowPosY < ( rect.y + rect.h ) )
+			{
+				displayIdx = i;
+				break;
+			}
+		}
+	}
+
+	return displayIdx;
+}
+
+// SRS - Function to get display frequency of monitor hosting the current window
+static int GetDisplayFrequency( glimpParms_t parms )
+{
+	SDL_DisplayMode m = {0};
+	if( SDL_GetWindowDisplayMode( window, &m ) < 0 )
+	{
+		common->Warning( "Couldn't get display refresh rate, reason: %s", SDL_GetError() );
+		return parms.displayHz;
+	}
+
+	return m.refresh_rate;
+}
+
+/*
 ===================
 VKimp_Init
 ===================
@@ -155,174 +229,87 @@ bool VKimp_Init( glimpParms_t parms )
 
 	common->Printf( "Initializing Vulkan subsystem\n" );
 
-	VKimp_PreInit(); // DG: make sure SDL is initialized
+	// DG: make sure SDL is initialized
+	VKimp_PreInit();
 
-	// DG: make window resizable
-	Uint32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-	// DG end
-
-	if( parms.fullScreen )
+	// SRS - create window in the specified desktop position unless overridden by modes below
+	glimpParms_t createParms = parms;
+	if( parms.fullScreen == 0 )
 	{
-		flags |= SDL_WINDOW_FULLSCREEN;
+		// SRS - startup with window in centered position, use r_windowX and r_windowY after
+		createParms.x = createParms.y = SDL_WINDOWPOS_CENTERED;
+	}
+	else if( parms.fullScreen > 0 )
+	{
+		if( parms.fullScreen > SDL_GetNumVideoDisplays() )
+		{
+			common->Warning( "Couldn't set display to r_fullscreen = %i because we only have %i display(s)",
+							 parms.fullScreen, SDL_GetNumVideoDisplays() );
+			return false;
+		}
+		else
+		{
+			// -1 because SDL starts counting displays at 0, while parms.fullScreen starts at 1
+			createParms.x = createParms.y = SDL_WINDOWPOS_CENTERED_DISPLAY( ( parms.fullScreen - 1 ) );
+		}
+	}
+	else if( GetDisplayIndex( parms ) < 0 ) // verify window position for -1 and -2 borderless modes
+	{
+		// SRS - window is out of bounds for desktop, startup on default display instead
+		createParms.x = createParms.y = SDL_WINDOWPOS_UNDEFINED;
 	}
 
-	int colorbits = 24;
-	int depthbits = 24;
-	int stencilbits = 8;
-
-	for( int i = 0; i < 16; i++ )
+	if( !deviceManager->CreateWindowDeviceAndSwapChain( createParms, GAME_NAME ) )
 	{
-		// 0 - default
-		// 1 - minus colorbits
-		// 2 - minus depthbits
-		// 3 - minus stencil
-		if( ( i % 4 ) == 0 && i )
-		{
-			// one pass, reduce
-			switch( i / 4 )
-			{
-				case 2 :
-					if( colorbits == 24 )
-					{
-						colorbits = 16;
-					}
-					break;
-				case 1 :
-					if( depthbits == 24 )
-					{
-						depthbits = 16;
-					}
-					else if( depthbits == 16 )
-					{
-						depthbits = 8;
-					}
-				case 3 :
-					if( stencilbits == 24 )
-					{
-						stencilbits = 16;
-					}
-					else if( stencilbits == 16 )
-					{
-						stencilbits = 8;
-					}
-			}
-		}
-
-		int tcolorbits = colorbits;
-		int tdepthbits = depthbits;
-		int tstencilbits = stencilbits;
-
-		if( ( i % 4 ) == 3 )
-		{
-			// reduce colorbits
-			if( tcolorbits == 24 )
-			{
-				tcolorbits = 16;
-			}
-		}
-
-		if( ( i % 4 ) == 2 )
-		{
-			// reduce depthbits
-			if( tdepthbits == 24 )
-			{
-				tdepthbits = 16;
-			}
-			else if( tdepthbits == 16 )
-			{
-				tdepthbits = 8;
-			}
-		}
-
-		if( ( i % 4 ) == 1 )
-		{
-			// reduce stencilbits
-			if( tstencilbits == 24 )
-			{
-				tstencilbits = 16;
-			}
-			else if( tstencilbits == 16 )
-			{
-				tstencilbits = 8;
-			}
-			else
-			{
-				tstencilbits = 0;
-			}
-		}
-
-		int channelcolorbits = 4;
-		if( tcolorbits == 24 )
-		{
-			channelcolorbits = 8;
-		}
-
-		// DG: set display num for fullscreen
-		int windowPos = SDL_WINDOWPOS_UNDEFINED;
-		if( parms.fullScreen > 0 )
-		{
-			if( parms.fullScreen > SDL_GetNumVideoDisplays() )
-			{
-				common->Warning( "Couldn't set display to num %i because we only have %i displays",
-								 parms.fullScreen, SDL_GetNumVideoDisplays() );
-			}
-			else
-			{
-				// -1 because SDL starts counting displays at 0, while parms.fullScreen starts at 1
-				windowPos = SDL_WINDOWPOS_UNDEFINED_DISPLAY( ( parms.fullScreen - 1 ) );
-			}
-		}
-		// TODO: if parms.fullScreen == -1 there should be a borderless window spanning multiple displays
-		/*
-		 * NOTE that this implicitly handles parms.fullScreen == -2 (from r_fullscreen -2) meaning
-		 * "do fullscreen, but I don't care on what monitor", at least on my box it's the monitor with
-		 * the mouse cursor.
-		 */
-
-		window = SDL_CreateWindow( GAME_NAME,
-								   windowPos,
-								   windowPos,
-								   parms.width, parms.height, flags );
-		// DG end
-
-		if( !window )
-		{
-			common->DPrintf( "Couldn't set Vulkan mode %d/%d/%d: %s",
-							 channelcolorbits, tdepthbits, tstencilbits, SDL_GetError() );
-			continue;
-		}
-		vkcontext.sdlWindow = window;
-		// RB begin
-		SDL_GetWindowSize( window, &glConfig.nativeScreenWidth, &glConfig.nativeScreenHeight );
-		// RB end
-
-		glConfig.isFullscreen = ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) == SDL_WINDOW_FULLSCREEN;
-
-		common->Printf( "Using %d color bits, %d depth, %d stencil display\n",
-						channelcolorbits, tdepthbits, tstencilbits );
-
-		glConfig.colorBits = tcolorbits;
-		glConfig.depthBits = tdepthbits;
-		glConfig.stencilBits = tstencilbits;
-
-		// RB begin
-		glConfig.displayFrequency = 60;
-		glConfig.isStereoPixelFormat = parms.stereo;
-		glConfig.multisamples = parms.multiSamples;
-
-		glConfig.pixelAspect = 1.0f;	// FIXME: some monitor modes may be distorted
-		// should side-by-side stereo modes be consider aspect 0.5?
-
-		// RB end
-
-		break;
-	}
-
-	if( !window )
-	{
-		common->Printf( "No usable VK mode found: %s", SDL_GetError() );
+		common->Warning( "Couldn't initialize Vulkan subsystem for r_fullscreen = %i", parms.fullScreen );
 		return false;
 	}
+
+	if( parms.fullScreen > 0 )
+	{
+		// SRS - Make sure display is set to the requested refresh rate
+		if( parms.displayHz > 0 && parms.displayHz != GetDisplayFrequency( parms ) )
+		{
+			SDL_DisplayMode m = {0};
+			SDL_GetWindowDisplayMode( window, &m );
+
+			m.refresh_rate = parms.displayHz;
+			if( SDL_SetWindowDisplayMode( window, &m ) < 0 )
+			{
+				common->Warning( "Couldn't set display refresh rate to %i Hz, reason: %s", parms.displayHz, SDL_GetError() );
+			}
+		}
+
+		// SRS - Move to fullscreen mode after window creation to avoid SDL platform differences
+		if( SDL_SetWindowFullscreen( window, SDL_WINDOW_FULLSCREEN ) < 0 )
+		{
+			common->Warning( "Couldn't switch to fullscreen mode, reason: %s", SDL_GetError() );
+		}
+	}
+	else if( parms.fullScreen == -2 )
+	{
+		// SRS - Move to borderless fullscreen mode after window creation
+		if( SDL_SetWindowFullscreen( window, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
+		{
+			common->Warning( "Couldn't switch to borderless fullscreen mode, reason: %s", SDL_GetError() );
+		}
+	}
+
+	// RB begin
+	SDL_GetWindowSize( window, &glConfig.nativeScreenWidth, &glConfig.nativeScreenHeight );
+	// RB end
+
+	// SRS - Detect and save actual fullscreen state supporting all modes (-2, -1, 0, 1, ...)
+	glConfig.isFullscreen = ( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) || ( parms.fullScreen == -1 ) ? parms.fullScreen : 0;
+
+	// RB begin
+	glConfig.displayFrequency = GetDisplayFrequency( parms );
+	glConfig.isStereoPixelFormat = parms.stereo;
+	glConfig.multisamples = parms.multiSamples;
+
+	glConfig.pixelAspect = 1.0f;	// FIXME: some monitor modes may be distorted
+	// should side-by-side stereo modes be consider aspect 0.5?
+	// RB end
 
 #if defined(__APPLE__) && SDL_VERSION_ATLEAST(2, 0, 2)
 	// SRS - On OSX enable SDL2 relative mouse mode warping to capture mouse properly if outside of window
@@ -343,40 +330,54 @@ bool VKimp_Init( glimpParms_t parms )
 */
 static int ScreenParmsHandleDisplayIndex( glimpParms_t parms )
 {
-	int displayIdx;
+	// SRS - For reliable operation on all SDL2 platforms, disable fullscreen before monitor or mode switching
+	if( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN )
+	{
+		// if we're already in fullscreen mode but want to switch to another monitor
+		// we have to go to windowed mode first to move the window.. SDL-oddity.
+		SDL_SetWindowFullscreen( window, SDL_FALSE );
+	}
+
+	// SRS - For reliable operation on all SDL2 platforms, restore window before monitor or mode switching
+	if( SDL_GetWindowFlags( window ) & SDL_WINDOW_MAXIMIZED )
+	{
+		// if window is maximized but want to switch to another monitor
+		// we have to restore first to move the window.. SDL-oddity.
+		SDL_RestoreWindow( window );
+	}
+
+	int displayIdx = GetDisplayIndex( parms );
+
 	if( parms.fullScreen > 0 )
 	{
-		displayIdx = parms.fullScreen - 1; // first display for SDL is 0, in parms it's 1
-	}
-	else // -2 == use current display
-	{
-		displayIdx = SDL_GetWindowDisplayIndex( window );
-		if( displayIdx < 0 ) // for some reason the display for the window couldn't be detected
+		if( displayIdx < 0 )
 		{
+			common->Warning( "Couldn't set display to r_fullscreen = %i because we only have %i display(s)",
+							 parms.fullScreen, SDL_GetNumVideoDisplays() );
+			return displayIdx;
+		}
+
+		if( parms.fullScreen != glConfig.isFullscreen )
+		{
+			// select display ; SDL_WINDOWPOS_UNDEFINED_DISPLAY() doesn't work.
+			int windowPos = SDL_WINDOWPOS_CENTERED_DISPLAY( displayIdx );
+			// move window to the center of selected display
+			SDL_SetWindowPosition( window, windowPos, windowPos );
+		}
+	}
+	else // -2 == use current display for borderless fullscreen
+	{
+		// SRS - verify window position
+		int windowPosX = parms.x, windowPosY = parms.y;
+		if( displayIdx < 0 )
+		{
+			// SRS - window is out of bounds for desktop, reposition onto default display
+			windowPosX = windowPosY = SDL_WINDOWPOS_UNDEFINED;
 			displayIdx = 0;
 		}
-	}
 
-	if( parms.fullScreen > SDL_GetNumVideoDisplays() )
-	{
-		common->Warning( "Can't set fullscreen mode to display number %i, because SDL2 only knows about %i displays!",
-						 parms.fullScreen, SDL_GetNumVideoDisplays() );
-		return -1;
-	}
-
-	if( parms.fullScreen != glConfig.isFullscreen )
-	{
-		// we have to switch to another display
-		if( glConfig.isFullscreen )
-		{
-			// if we're already in fullscreen mode but want to switch to another monitor
-			// we have to go to windowed mode first to move the window.. SDL-oddity.
-			SDL_SetWindowFullscreen( window, SDL_FALSE );
-		}
-		// select display ; SDL_WINDOWPOS_UNDEFINED_DISPLAY() doesn't work.
-		int x = SDL_WINDOWPOS_CENTERED_DISPLAY( displayIdx );
-		// move window to the center of selected display
-		SDL_SetWindowPosition( window, x, x );
+		// move window to the specified desktop position
+		SDL_SetWindowPosition( window, windowPosX, windowPosY );
 	}
 	return displayIdx;
 }
@@ -390,28 +391,37 @@ static bool SetScreenParmsFullscreen( glimpParms_t parms )
 		return false;
 	}
 
-	// get current mode of display the window should be full-screened on
-	SDL_GetCurrentDisplayMode( displayIdx, &m );
-
-	// change settings in that display mode according to parms
+	// change displaymode settings according to parms
 	// FIXME: check if refreshrate, width and height are supported?
-	// m.refresh_rate = parms.displayHz;
-	m.w = parms.width;
-	m.h = parms.height;
-
-	// set that displaymode
-	if( SDL_SetWindowDisplayMode( window, &m ) < 0 )
+	if( parms.fullScreen > 0 )
 	{
-		common->Warning( "Couldn't set window mode for fullscreen, reason: %s", SDL_GetError() );
-		return false;
-	}
+		SDL_DisplayMode m = {0};
+		SDL_GetWindowDisplayMode( window, &m );
 
-	// if we're currently not in fullscreen mode, we need to switch to fullscreen
-	if( !( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN ) )
-	{
-		if( SDL_SetWindowFullscreen( window, SDL_TRUE ) < 0 )
+		m.w = parms.width;
+		m.h = parms.height;
+		m.refresh_rate = parms.displayHz;
+
+		// set the window displaymode
+		if( SDL_SetWindowDisplayMode( window, &m ) < 0 )
 		{
-			common->Warning( "Couldn't switch to fullscreen mode, reason: %s!", SDL_GetError() );
+			common->Warning( "Couldn't set window mode for fullscreen, reason: %s", SDL_GetError() );
+			return false;
+		}
+
+		// SRS - Move to fullscreen mode
+		if( SDL_SetWindowFullscreen( window, SDL_WINDOW_FULLSCREEN ) < 0 )
+		{
+			common->Warning( "Couldn't switch to fullscreen mode, reason: %s", SDL_GetError() );
+			return false;
+		}
+	}
+	else // -2 == use current display for borderless fullscreen
+	{
+		// SRS - Move to borderless fullscreen mode
+		if( SDL_SetWindowFullscreen( window, SDL_WINDOW_FULLSCREEN_DESKTOP ) < 0 )
+		{
+			common->Warning( "Couldn't switch to borderless fullscreen mode, reason: %s", SDL_GetError() );
 			return false;
 		}
 	}
@@ -420,18 +430,44 @@ static bool SetScreenParmsFullscreen( glimpParms_t parms )
 
 static bool SetScreenParmsWindowed( glimpParms_t parms )
 {
-	SDL_SetWindowSize( window, parms.width, parms.height );
-	SDL_SetWindowPosition( window, parms.x, parms.y );
+	// SRS - verify window position for 0 and -1 windowed modes
+	int windowPosX = parms.x, windowPosY = parms.y;
+	if( GetDisplayIndex( parms ) < 0 )
+	{
+		// SRS - window is out of bounds for desktop, reposition onto default display
+		windowPosX = windowPosY = SDL_WINDOWPOS_UNDEFINED;
+	}
+
+	// SRS - handle differences in WM behaviour: for macOS set position first, for linux set it last
+#if defined(__APPLE__)
+	SDL_SetWindowPosition( window, windowPosX, windowPosY );
+#endif
 
 	// if we're currently in fullscreen mode, we need to disable that
 	if( SDL_GetWindowFlags( window ) & SDL_WINDOW_FULLSCREEN )
 	{
 		if( SDL_SetWindowFullscreen( window, SDL_FALSE ) < 0 )
 		{
-			common->Warning( "Couldn't switch to windowed mode, reason: %s!", SDL_GetError() );
+			common->Warning( "Couldn't switch to windowed mode, reason: %s", SDL_GetError() );
 			return false;
 		}
 	}
+
+	// if window is maximized, restore it to normal before setting size
+	if( SDL_GetWindowFlags( window ) & SDL_WINDOW_MAXIMIZED )
+	{
+		SDL_RestoreWindow( window );
+	}
+
+	// set window to bordered or borderless based on parms
+	SDL_SetWindowBordered( window, parms.fullScreen == 0 ? SDL_TRUE : SDL_FALSE );
+
+	SDL_SetWindowSize( window, parms.width, parms.height );
+
+#if !defined(__APPLE__)
+	SDL_SetWindowPosition( window, windowPosX, windowPosY );
+#endif
+
 	return true;
 }
 
@@ -443,7 +479,6 @@ VKimp_SetScreenParms
 */
 bool VKimp_SetScreenParms( glimpParms_t parms )
 {
-
 	if( parms.fullScreen > 0 || parms.fullScreen == -2 )
 	{
 		if( !SetScreenParmsFullscreen( parms ) )
@@ -451,27 +486,27 @@ bool VKimp_SetScreenParms( glimpParms_t parms )
 			return false;
 		}
 	}
-	else if( parms.fullScreen == 0 ) // windowed mode
+	else // windowed modes 0 and -1
 	{
 		if( !SetScreenParmsWindowed( parms ) )
 		{
 			return false;
 		}
 	}
-	else
-	{
-		common->Warning( "VKimp_SetScreenParms: fullScreen -1 (borderless window for multiple displays) currently unsupported!" );
-		return false;
-	}
 
 	glConfig.isFullscreen = parms.fullScreen;
 	glConfig.isStereoPixelFormat = parms.stereo;
 	glConfig.nativeScreenWidth = parms.width;
 	glConfig.nativeScreenHeight = parms.height;
-	glConfig.displayFrequency = parms.displayHz;
+	glConfig.displayFrequency = GetDisplayFrequency( parms );
 	glConfig.multisamples = parms.multiSamples;
 
 	return true;
+}
+
+void DeviceManager::Shutdown()
+{
+	DestroyDeviceAndSwapChain();
 }
 
 /*
@@ -482,6 +517,11 @@ VKimp_Shutdown
 void VKimp_Shutdown()
 {
 	common->Printf( "Shutting down Vulkan subsystem\n" );
+
+	if( deviceManager )
+	{
+		deviceManager->Shutdown();
+	}
 
 	if( window )
 	{
@@ -498,7 +538,6 @@ VKimp_SetGamma
 */
 void VKimp_SetGamma( unsigned short red[256], unsigned short green[256], unsigned short blue[256] )
 {
-#ifndef USE_VULKAN
 	if( !window )
 	{
 		common->Warning( "VKimp_SetGamma called without window" );
@@ -511,21 +550,7 @@ void VKimp_SetGamma( unsigned short red[256], unsigned short green[256], unsigne
 	if( SDL_SetGammaRamp( red, green, blue ) )
 #endif
 		common->Warning( "Couldn't set gamma ramp: %s", SDL_GetError() );
-#endif
 }
-
-/*
-===================
-VKimp_ExtensionPointer
-===================
-*/
-/*
-GLExtension_t VKimp_ExtensionPointer(const char *name) {
-	assert(SDL_WasInit(SDL_INIT_VIDEO));
-
-	return (GLExtension_t)SDL_GL_GetProcAddress(name);
-}
-*/
 
 void VKimp_GrabInput( int flags )
 {
@@ -604,7 +629,9 @@ static void FillStaticVidModes( idList<vidMode_t>& modeList )
 	modeList.AddUnique( vidMode_t( 1920, 1080, 60 ) );
 	modeList.AddUnique( vidMode_t( 1920, 1200, 60 ) );
 	modeList.AddUnique( vidMode_t( 2048, 1536, 60 ) );
+	modeList.AddUnique( vidMode_t( 2560, 1440, 60 ) );
 	modeList.AddUnique( vidMode_t( 2560, 1600, 60 ) );
+	modeList.AddUnique( vidMode_t( 3840, 2160, 60 ) );
 
 	modeList.SortWithTemplate( idSort_VidMode() );
 }
@@ -619,6 +646,8 @@ bool R_GetModeListForDisplay( const int requestedDisplayNum, idList<vidMode_t>& 
 	assert( requestedDisplayNum >= 0 );
 
 	modeList.Clear();
+
+	bool	verbose = false;
 
 	// DG: SDL2 implementation
 	if( requestedDisplayNum >= SDL_GetNumVideoDisplays() )
@@ -636,8 +665,31 @@ bool R_GetModeListForDisplay( const int requestedDisplayNum, idList<vidMode_t>& 
 			int ret = SDL_GetDisplayMode( requestedDisplayNum, i, &m );
 			if( ret != 0 )
 			{
-				common->Warning( "Can't get video mode no %i, because of %s\n", i, SDL_GetError() );
+				common->Warning( "Can't get video mode no %i, because of %s", i, SDL_GetError() );
 				continue;
+			}
+
+			if( SDL_BITSPERPIXEL( m.format ) != 32 && SDL_BITSPERPIXEL( m.format ) != 24 )
+			{
+				continue;
+			}
+			if( ( m.refresh_rate != 60 ) && ( m.refresh_rate != 120 ) &&
+					( m.refresh_rate != 144 ) && ( m.refresh_rate != 165 ) && ( m.refresh_rate != 240 ) )
+			{
+				continue;
+			}
+			if( m.h < 720 )
+			{
+				continue;
+			}
+			if( verbose )
+			{
+				common->Printf( "          -------------------\n" );
+				common->Printf( "          modeNum             : %i\n", i );
+				common->Printf( "          dmBitsPerPel        : %i\n", SDL_BITSPERPIXEL( m.format ) );
+				common->Printf( "          dmPelsWidth         : %i\n", m.w );
+				common->Printf( "          dmPelsHeight        : %i\n", m.h );
+				common->Printf( "          dmDisplayFrequency  : %i\n", m.refresh_rate );
 			}
 
 			vidMode_t mode;
@@ -661,7 +713,7 @@ bool R_GetModeListForDisplay( const int requestedDisplayNum, idList<vidMode_t>& 
 		common->Warning( "Can't get Video Info, using default modes...\n" );
 		if( numModes < 0 )
 		{
-			common->Warning( "Reason was: %s\n", SDL_GetError() );
+			common->Warning( "Reason was: %s", SDL_GetError() );
 		}
 		FillStaticVidModes( modeList );
 	}

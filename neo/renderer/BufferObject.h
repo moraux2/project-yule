@@ -4,6 +4,7 @@
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2016-2017 Dustin Land
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -29,9 +30,14 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __BUFFEROBJECT_H__
 #define __BUFFEROBJECT_H__
 
-#if defined( USE_VULKAN )
-	#include "Vulkan/Allocator_VK.h"
+
+#include <nvrhi/nvrhi.h>
+
+#if defined( USE_AMD_ALLOCATOR )
+	#include <nvrhi/vulkan.h>
+	#include "vk_mem_alloc.h"
 #endif
+
 
 enum bufferMapType_t
 {
@@ -76,17 +82,10 @@ public:
 	{
 		return usage;
 	}
-#if defined( USE_VULKAN )
-	VkBuffer			GetAPIObject() const
+	nvrhi::IBuffer*		GetAPIObject() const
 	{
-		return apiObject;
+		return bufferHandle;
 	}
-#else
-	GLintptr			GetAPIObject() const
-	{
-		return apiObject;
-	}
-#endif
 	int					GetOffset() const
 	{
 		return ( offsetInOtherBuffer & ~OWNS_BUFFER_FLAG );
@@ -95,6 +94,11 @@ public:
 	bool				IsMapped() const
 	{
 		return ( size & MAPPED_FLAG ) != 0;
+	}
+
+	void				SetDebugName( idStr str )
+	{
+		debugName = str;
 	}
 
 protected:
@@ -112,29 +116,24 @@ protected:
 	}
 
 protected:
-	int					size;					// size in bytes
-	int					offsetInOtherBuffer;	// offset in bytes
-	bufferUsageType_t	usage;
+	int							size;					// size in bytes
+	int							offsetInOtherBuffer;	// offset in bytes
+	bufferUsageType_t			usage;
 
-#if defined( USE_VULKAN )
-	VkBuffer			apiObject;
+	nvrhi::InputLayoutHandle	inputLayout;
+	nvrhi::BufferHandle			bufferHandle;
+	void*						buffer;
+	idStr						debugName;
 
 #if defined( USE_AMD_ALLOCATOR )
-	VmaAllocation		vmaAllocation;
-	VmaAllocationInfo	allocation;
-#else
-	vulkanAllocation_t	allocation;
-#endif
-
-#else
-	// GL
-	GLintptr			apiObject;
-	void* 				buffer;
+	VkBuffer					vkBuffer;
+	VmaAllocation				allocation;
+	VmaAllocationInfo			allocationInfo;
 #endif
 
 	// sizeof() confuses typeinfo...
-	static const int	MAPPED_FLAG			= 1 << ( 4 /* sizeof( int ) */ * 8 - 1 );
-	static const int	OWNS_BUFFER_FLAG	= 1 << ( 4 /* sizeof( int ) */ * 8 - 1 );
+	static const int			MAPPED_FLAG			= 1 << ( 4 /* sizeof( int ) */ * 8 - 1 );
+	static const int			OWNS_BUFFER_FLAG	= 1 << ( 4 /* sizeof( int ) */ * 8 - 1 );
 };
 
 /*
@@ -151,7 +150,7 @@ public:
 	~idVertexBuffer();
 
 	// Allocate or free the buffer.
-	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage );
+	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage, nvrhi::ICommandList* commandList );
 	void				FreeBufferObject();
 
 	// Make this buffer a reference to another buffer.
@@ -159,7 +158,7 @@ public:
 	void				Reference( const idVertexBuffer& other, int refOffset, int refSize );
 
 	// Copies data to the buffer. 'size' may be less than the originally allocated size.
-	void				Update( const void* data, int size, int offset = 0 ) const;
+	void				Update( const void* data, int size, int offset, bool initialUpdate, nvrhi::ICommandList* commandList ) const;
 
 	void* 				MapBuffer( bufferMapType_t mapType );
 	idDrawVert* 		MapVertexBuffer( bufferMapType_t mapType )
@@ -188,7 +187,7 @@ public:
 	~idIndexBuffer();
 
 	// Allocate or free the buffer.
-	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage );
+	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage, nvrhi::ICommandList* commandList );
 	void				FreeBufferObject();
 
 	// Make this buffer a reference to another buffer.
@@ -196,7 +195,7 @@ public:
 	void				Reference( const idIndexBuffer& other, int refOffset, int refSize );
 
 	// Copies data to the buffer. 'size' may be less than the originally allocated size.
-	void				Update( const void* data, int size, int offset = 0 ) const;
+	void				Update( const void* data, int size, int offset, bool initialUpdate, nvrhi::ICommandList* commandList ) const;
 
 	void* 				MapBuffer( bufferMapType_t mapType );
 	triIndex_t* 		MapIndexBuffer( bufferMapType_t mapType )
@@ -228,7 +227,7 @@ public:
 	~idUniformBuffer();
 
 	// Allocate or free the buffer.
-	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage );
+	bool				AllocBufferObject( const void* data, int allocSize, bufferUsageType_t usage, nvrhi::ICommandList* commandList );
 	void				FreeBufferObject();
 
 	// Make this buffer a reference to another buffer.
@@ -236,7 +235,7 @@ public:
 	void				Reference( const idUniformBuffer& other, int refOffset, int refSize );
 
 	// Copies data to the buffer. 'size' may be less than the originally allocated size.
-	void				Update( const void* data, int size, int offset = 0 ) const;
+	void				Update( const void* data, int size, int offset, bool initialUpdate, nvrhi::ICommandList* commandList ) const;
 
 	void* 				MapBuffer( bufferMapType_t mapType );
 	void				UnmapBuffer();

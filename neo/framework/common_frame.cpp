@@ -64,8 +64,7 @@ idCVar com_deltaTimeClamp( "com_deltaTimeClamp", "50", CVAR_INTEGER, "don't proc
 
 idCVar com_fixedTic( "com_fixedTic", DEFAULT_FIXED_TIC, CVAR_BOOL, "run a single game frame per render frame" );
 idCVar com_noSleep( "com_noSleep", DEFAULT_NO_SLEEP, CVAR_BOOL, "don't sleep if the game is running too fast" );
-idCVar com_smp( "com_smp", "1", CVAR_INTEGER | CVAR_SYSTEM | CVAR_NOCHEAT, "run the game and draw code in a separate thread" );
-idCVar com_aviDemoSamples( "com_aviDemoSamples", "16", CVAR_SYSTEM, "" );
+idCVar com_smp( "com_smp", "1", CVAR_BOOL | CVAR_SYSTEM | CVAR_NOCHEAT, "run the game and draw code in a separate thread" );
 idCVar com_aviDemoWidth( "com_aviDemoWidth", "256", CVAR_SYSTEM, "" );
 idCVar com_aviDemoHeight( "com_aviDemoHeight", "256", CVAR_SYSTEM, "" );
 idCVar com_skipGameDraw( "com_skipGameDraw", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
@@ -91,6 +90,8 @@ be called directly in the foreground thread for comparison.
 */
 int idGameThread::Run()
 {
+	OPTICK_THREAD( "idGameThread" );
+
 	commonLocal.frameTiming.startGameTime = Sys_Microseconds();
 
 	// debugging tool to test frame dropping behavior
@@ -195,7 +196,7 @@ gameReturn_t idGameThread::RunGameAndDraw( int numGameFrames_, idUserCmdMgr& use
 
 	// start the thread going
 	// foresthale 2014-05-12: also check com_editors as many of them are not particularly thread-safe (editLights for example)
-	if( com_smp.GetInteger() <= 0 || com_editors != 0 )
+	if( !com_smp.GetBool() || com_editors != 0 )
 	{
 		// run it in the main thread so PIX profiling catches everything
 		Run();
@@ -517,6 +518,8 @@ void idCommonLocal::Frame()
 		// This is the only place this is incremented
 		idLib::frameNumber++;
 
+		//OPTICK_TAG( "N", idLib::frameNumber );
+
 		// allow changing SIMD usage on the fly
 		if( com_forceGenericSIMD.IsModified() )
 		{
@@ -596,20 +599,6 @@ void idCommonLocal::Frame()
 #endif
 		// RB end
 
-		// save the screenshot and audio from the last draw if needed
-		if( aviCaptureMode )
-		{
-			idStr name;
-			name.Format( "demos/%s/%s_%05i", aviDemoShortName.c_str(), aviDemoShortName.c_str(), aviDemoFrameCount++ );
-			renderSystem->TakeScreenshot( com_aviDemoWidth.GetInteger(), com_aviDemoHeight.GetInteger(), name, com_aviDemoSamples.GetInteger(), NULL, TGA );
-
-			// remove any printed lines at the top before taking the screenshot
-			console->ClearNotifyLines();
-
-			// this will call Draw, possibly multiple times if com_aviDemoSamples is > 1
-			renderSystem->TakeScreenshot( com_aviDemoWidth.GetInteger(), com_aviDemoHeight.GetInteger(), name, com_aviDemoSamples.GetInteger(), NULL, TGA );
-		}
-
 		//--------------------------------------------
 		// wait for the GPU to finish drawing
 		//
@@ -623,14 +612,9 @@ void idCommonLocal::Frame()
 		const emptyCommand_t* renderCommands = NULL;
 
 		// foresthale 2014-05-12: also check com_editors as many of them are not particularly thread-safe (editLights for example)
-		if( com_smp.GetInteger() > 0 && com_editors == 0 )
+		if( com_smp.GetBool() && com_editors == 0 )
 		{
 			renderCommands = renderSystem->SwapCommandBuffers( &time_frontend, &time_backend, &time_shadows, &time_gpu, &stats_backend, &stats_frontend );
-		}
-		else if( com_smp.GetInteger() < 0 )
-		{
-			// RB: this is the same as Doom 3 renderSystem->BeginFrame()
-			renderCommands = renderSystem->SwapCommandBuffers_FinishCommandBuffers();
 		}
 		else
 		{
@@ -669,84 +653,89 @@ void idCommonLocal::Frame()
 		// How many game frames to run
 		int numGameFrames = 0;
 
-		for( ;; )
 		{
-			const int thisFrameTime = Sys_Milliseconds();
-			static int lastFrameTime = thisFrameTime;	// initialized only the first time
-			const int deltaMilliseconds = thisFrameTime - lastFrameTime;
-			lastFrameTime = thisFrameTime;
 
-			// if there was a large gap in time since the last frame, or the frame
-			// rate is very very low, limit the number of frames we will run
-			const int clampedDeltaMilliseconds = Min( deltaMilliseconds, com_deltaTimeClamp.GetInteger() );
-
-			gameTimeResidual += clampedDeltaMilliseconds * timescale.GetFloat();
-
-			// don't run any frames when paused
-			// jpcy: the game is paused when playing a demo, but playDemo should wait like the game does
-			// SRS - don't wait if window not in focus and playDemo itself paused
-			if( pauseGame && ( !( readDemo && !timeDemo ) || session->IsSystemUIShowing() || com_pause.GetInteger() ) )
-			{
-				gameFrame++;
-				gameTimeResidual = 0;
-				break;
-			}
-
-			// debug cvar to force multiple game tics
-			if( com_fixedTic.GetInteger() > 0 )
-			{
-				numGameFrames = com_fixedTic.GetInteger();
-				gameFrame += numGameFrames;
-				gameTimeResidual = 0;
-				break;
-			}
-
-			if( syncNextGameFrame )
-			{
-				// don't sleep at all
-				syncNextGameFrame = false;
-				gameFrame++;
-				numGameFrames++;
-				gameTimeResidual = 0;
-				break;
-			}
+			OPTICK_CATEGORY( "Wait for Frame", Optick::Category::Wait );
 
 			for( ;; )
 			{
-				// How much time to wait before running the next frame,
-				// based on com_engineHz
-				const int frameDelay = FRAME_TO_MSEC( gameFrame + 1 ) - FRAME_TO_MSEC( gameFrame );
-				if( gameTimeResidual < frameDelay )
+				const int thisFrameTime = Sys_Milliseconds();
+				static int lastFrameTime = thisFrameTime;	// initialized only the first time
+				const int deltaMilliseconds = thisFrameTime - lastFrameTime;
+				lastFrameTime = thisFrameTime;
+
+				// if there was a large gap in time since the last frame, or the frame
+				// rate is very very low, limit the number of frames we will run
+				const int clampedDeltaMilliseconds = Min( deltaMilliseconds, com_deltaTimeClamp.GetInteger() );
+
+				gameTimeResidual += clampedDeltaMilliseconds * timescale.GetFloat();
+
+				// don't run any frames when paused
+				// jpcy: the game is paused when playing a demo, but playDemo should wait like the game does
+				// SRS - don't wait if window not in focus and playDemo itself paused
+				if( pauseGame && ( !( readDemo && !timeDemo ) || session->IsSystemUIShowing() || com_pause.GetInteger() ) )
 				{
+					gameFrame++;
+					gameTimeResidual = 0;
 					break;
 				}
-				gameTimeResidual -= frameDelay;
-				gameFrame++;
-				numGameFrames++;
-				// if there is enough residual left, we may run additional frames
-			}
 
-			if( numGameFrames > 0 )
-			{
-				// ready to actually run them
-				break;
-			}
+				// debug cvar to force multiple game tics
+				if( com_fixedTic.GetInteger() > 0 )
+				{
+					numGameFrames = com_fixedTic.GetInteger();
+					gameFrame += numGameFrames;
+					gameTimeResidual = 0;
+					break;
+				}
 
-			// if we are vsyncing, we always want to run at least one game
-			// frame and never sleep, which might happen due to scheduling issues
-			// if we were just looking at real time.
-			if( com_noSleep.GetBool() )
-			{
-				numGameFrames = 1;
-				gameFrame += numGameFrames;
-				gameTimeResidual = 0;
-				break;
-			}
+				if( syncNextGameFrame )
+				{
+					// don't sleep at all
+					syncNextGameFrame = false;
+					gameFrame++;
+					numGameFrames++;
+					gameTimeResidual = 0;
+					break;
+				}
 
-			// not enough time has passed to run a frame, as might happen if
-			// we don't have vsync on, or the monitor is running at 120hz while
-			// com_engineHz is 60, so sleep a bit and check again
-			Sys_Sleep( 0 );
+				for( ;; )
+				{
+					// How much time to wait before running the next frame,
+					// based on com_engineHz
+					const int frameDelay = FRAME_TO_MSEC( gameFrame + 1 ) - FRAME_TO_MSEC( gameFrame );
+					if( gameTimeResidual < frameDelay )
+					{
+						break;
+					}
+					gameTimeResidual -= frameDelay;
+					gameFrame++;
+					numGameFrames++;
+					// if there is enough residual left, we may run additional frames
+				}
+
+				if( numGameFrames > 0 )
+				{
+					// ready to actually run them
+					break;
+				}
+
+				// if we are vsyncing, we always want to run at least one game
+				// frame and never sleep, which might happen due to scheduling issues
+				// if we were just looking at real time.
+				if( com_noSleep.GetBool() )
+				{
+					numGameFrames = 1;
+					gameFrame += numGameFrames;
+					gameTimeResidual = 0;
+					break;
+				}
+
+				// not enough time has passed to run a frame, as might happen if
+				// we don't have vsync on, or the monitor is running at 120hz while
+				// com_engineHz is 60, so sleep a bit and check again
+				Sys_Sleep( 0 );
+			}
 		}
 
 		// jpcy: playDemo uses the game frame wait logic, but shouldn't run any game frames
@@ -772,11 +761,6 @@ void idCommonLocal::Frame()
 			ExecuteMapChange();
 			mapSpawnData.savegameFile = NULL;
 			mapSpawnData.persistentPlayerInfo.Clear();
-			// SRS - If in Doom 3 mode (com_smp = -1) on map change, must obey fence before returning to avoid command buffer sync issues
-			if( com_smp.GetInteger() < 0 )
-			{
-				renderSystem->SwapCommandBuffers_FinishRendering( &time_frontend, &time_backend, &time_shadows, &time_gpu, &stats_backend, &stats_frontend );
-			}
 			return;
 		}
 		else if( session->GetState() != idSession::INGAME && mapSpawned )
@@ -841,7 +825,7 @@ void idCommonLocal::Frame()
 		// Store server game time - don't let time go past last SS time in case we are extrapolating
 		if( IsClient() )
 		{
-			newCmd.serverGameMilliseconds = std::min( Game()->GetServerGameTimeMs(), Game()->GetSSEndTime() );
+			newCmd.serverGameMilliseconds = Min( Game()->GetServerGameTimeMs(), Game()->GetSSEndTime() );
 		}
 		else
 		{
@@ -873,10 +857,10 @@ void idCommonLocal::Frame()
 		// start the game / draw command generation thread going in the background
 		gameReturn_t ret = gameThread.RunGameAndDraw( numGameFrames, userCmdMgr, IsClient(), gameFrame - numGameFrames );
 
-		// foresthale 2014-05-12: also check com_editors as many of them are not particularly thread-safe (editLights for example)
-		// SRS - if com_editors is active make sure com_smp != -1, otherwise skip and call SwapCommandBuffers_FinishRendering later
 		frameTiming.startRenderTime = Sys_Microseconds();
-		if( com_smp.GetInteger() == 0 || ( com_smp.GetInteger() > 0 && com_editors != 0 ) )
+
+		// foresthale 2014-05-12: also check com_editors as many of them are not particularly thread-safe (editLights for example)
+		if( !com_smp.GetBool() || com_editors != 0 )
 		{
 			// in non-smp mode, run the commands we just generated, instead of
 			// frame-delayed ones from a background thread
@@ -895,13 +879,7 @@ void idCommonLocal::Frame()
 		}
 		frameTiming.finishRenderTime = Sys_Microseconds();
 
-		// SRS - If in Doom 3 mode (com_smp = -1), must sync after RenderCommandBuffers() otherwise get artifacts due to improper command buffer swap timing
-		if( com_smp.GetInteger() < 0 )
-		{
-			// RB: this is the same as Doom 3 renderSystem->EndFrame()
-			renderSystem->SwapCommandBuffers_FinishRendering( &time_frontend, &time_backend, &time_shadows, &time_gpu, &stats_backend, &stats_frontend );
-		}
-		// SRS - Use finishSyncTime_EndFrame to record timing after sync for com_smp = -1, and just before gameThread.WaitForThread() for com_smp = 1
+		// SRS - Use finishSyncTime_EndFrame to record timing just before gameThread.WaitForThread() for com_smp = 1
 		frameTiming.finishSyncTime_EndFrame = Sys_Microseconds();
 
 		// make sure the game / draw thread has completed

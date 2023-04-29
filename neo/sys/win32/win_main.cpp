@@ -102,7 +102,7 @@ typedef enum D3_PROCESS_DPI_AWARENESS
 void Sys_SetDPIAwareness()
 {
 	// For Vista, Win7 and Win8
-	BOOL( WINAPI * SetProcessDPIAware )( void ) = NULL;
+	BOOL( WINAPI * SetProcessDPIAware )() = NULL;
 
 	/* Win8.1 and later */
 	HRESULT( WINAPI * SetProcessDpiAwareness )( D3_PROCESS_DPI_AWARENESS dpiAwareness ) = NULL;
@@ -111,7 +111,7 @@ void Sys_SetDPIAwareness()
 	HINSTANCE userDLL = LoadLibrary( "USER32.DLL" );
 	if( userDLL )
 	{
-		SetProcessDPIAware = ( BOOL( WINAPI* )( void ) ) GetProcAddress( userDLL, "SetProcessDPIAware" );
+		SetProcessDPIAware = ( BOOL( WINAPI* )() ) GetProcAddress( userDLL, "SetProcessDPIAware" );
 	}
 
 	HINSTANCE shcoreDLL = LoadLibrary( "SHCORE.DLL" );
@@ -713,7 +713,7 @@ Sys_GogBasePath
 */
 static char gogPathBuffer[MAX_OSPATH] = { 0 };
 
-static const char* Sys_GogBasePath( void )
+static const char* Sys_GogBasePath()
 {
 #ifdef GOGPATH_ID
 	HKEY gogRegKey;
@@ -1948,6 +1948,21 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// DG: tell Windows 8+ we're high dpi aware, otherwise display scaling screws up the game
 	Sys_SetDPIAwareness();
 
+	// Setting memory allocators
+#if USE_OPTICK
+	OPTICK_SET_MEMORY_ALLOCATOR(
+		[]( size_t size ) -> void* { return operator new( size ); },
+		[]( void* p )
+	{
+		operator delete( p );
+	},
+	[]()
+	{
+		/* Do some TLS initialization here if needed */
+	}
+	);
+#endif
+
 #if 0
 	DWORD handler = ( DWORD )_except_handler;
 	__asm
@@ -2021,6 +2036,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 	// main game loop
 	while( 1 )
 	{
+		OPTICK_FRAME( "MainThread" );
 
 		Win_Frame();
 
@@ -2034,6 +2050,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// run the game
 		common->Frame();
 	}
+
+	OPTICK_SHUTDOWN();
 
 	// never gets here
 	return 0;

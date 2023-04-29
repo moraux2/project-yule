@@ -3,7 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
-Copyright (C) 2013-2016 Robert Beckebans
+Copyright (C) 2013-2023 Robert Beckebans
 Copyright (C) 2014-2016 Kot in Action Creative Artel
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
@@ -78,7 +78,6 @@ enum stereoDepthType_t
 	STEREO_DEPTH_TYPE_FAR
 };
 
-
 enum graphicsVendor_t
 {
 	VENDOR_NVIDIA,
@@ -87,27 +86,18 @@ enum graphicsVendor_t
 	VENDOR_APPLE                            // SRS - Added support for Apple GPUs
 };
 
-// RB: similar to Q3A - allow separate codepaths between OpenGL 3.x, OpenGL ES versions
-enum graphicsDriverType_t
-{
-	GLDRV_OPENGL3X,							// best for development with legacy OpenGL tools
-	GLDRV_OPENGL32_COMPATIBILITY_PROFILE,
-	GLDRV_OPENGL32_CORE_PROFILE,			// best for shipping to PC
-	GLDRV_OPENGL_ES2,
-	GLDRV_OPENGL_ES3,
-	GLDRV_OPENGL_MESA,						// fear this, it is probably the best to disable GPU skinning and run shaders in GLSL ES 1.0
-	GLDRV_OPENGL_MESA_CORE_PROFILE,
-
-	GLDRV_VULKAN
-};
+#define ID_MSAA 0
 
 enum antiAliasingMode_t
 {
 	ANTI_ALIASING_NONE,
-	ANTI_ALIASING_SMAA_1X,
+	ANTI_ALIASING_TAA,
+
+#if ID_MSAA
+	ANTI_ALIASING_TAA_SMAA_1X,
 	ANTI_ALIASING_MSAA_2X,
 	ANTI_ALIASING_MSAA_4X,
-	ANTI_ALIASING_MSAA_8X
+#endif
 };
 
 // CPU counters and timers
@@ -148,6 +138,8 @@ struct backEndCounters_t
 	int		c_drawElements;
 	int		c_drawIndexes;
 
+	int		c_shadowAtlasUsage; // allocated pixels in the atlas
+	int		c_shadowViews;
 	int		c_shadowElements;
 	int		c_shadowIndexes;
 
@@ -161,8 +153,10 @@ struct backEndCounters_t
 	uint64	gpuScreenSpaceAmbientOcclusionMicroSec;
 	uint64	gpuScreenSpaceReflectionsMicroSec;
 	uint64	gpuAmbientPassMicroSec;
+	uint64	gpuShadowAtlasPassMicroSec;
 	uint64	gpuInteractionsMicroSec;
 	uint64	gpuShaderPassMicroSec;
+	uint64	gpuTemporalAntiAliasingMicroSec;
 	uint64	gpuPostProcessingMicroSec;
 	uint64	gpuMicroSec;
 };
@@ -173,62 +167,13 @@ struct backEndCounters_t
 struct glconfig_t
 {
 	graphicsVendor_t	vendor;
-	graphicsDriverType_t driverType;
 
-	const char* 		renderer_string;
-	const char* 		vendor_string;
-	const char* 		version_string;
-	const char* 		extensions_string;
-	const char* 		wgl_extensions_string;
-	const char* 		shading_language_string;
-
-	float				glVersion;				// atof( version_string )
-
-	int					maxTextureSize;			// queried from GL
-	int					maxTextureCoords;
-	int					maxTextureImageUnits;
+//	int					maxTextureSize;			// TODO
+//	int					maxTextureCoords;		// TODO
+//	int					maxTextureImageUnits;	// TODO
 	int					uniformBufferOffsetAlignment;
-	float				maxTextureAnisotropy;
 
-	int					colorBits;
-	int					depthBits;
-	int					stencilBits;
-
-	bool				multitextureAvailable;
-	bool				directStateAccess;
-	bool				textureCompressionAvailable;
-	bool				anisotropicFilterAvailable;
-	bool				textureLODBiasAvailable;
-	bool				seamlessCubeMapAvailable;
-	bool				vertexBufferObjectAvailable;
-	bool				mapBufferRangeAvailable;
-	bool				vertexArrayObjectAvailable;
-	bool				drawElementsBaseVertexAvailable;
-	bool				fragmentProgramAvailable;
-	bool				glslAvailable;
-	bool				uniformBufferAvailable;
-	bool				twoSidedStencilAvailable;
-	bool				depthBoundsTestAvailable;
-	bool				syncAvailable;
 	bool				timerQueryAvailable;
-	bool				occlusionQueryAvailable;
-	bool				debugOutputAvailable;
-	bool				swapControlTearAvailable;
-
-	// RB begin
-	bool				gremedyStringMarkerAvailable;
-	bool				khronosDebugAvailable;
-	bool				vertexHalfFloatAvailable;
-
-	bool				framebufferObjectAvailable;
-	int					maxRenderbufferSize;
-	int					maxColorAttachments;
-//	bool				framebufferPackedDepthStencilAvailable;
-	bool				framebufferBlitAvailable;
-
-	// only true with uniform buffer support and an OpenGL driver that supports GLSL >= 1.50
-	bool				gpuSkinningAvailable;
-	// RB end
 
 	stereo3DMode_t		stereo3Dmode;
 	int					nativeScreenWidth; // this is the native screen width resolution of the renderer
@@ -247,12 +192,6 @@ struct glconfig_t
 	float				physicalScreenWidthInCentimeters;
 
 	float				pixelAspect;
-
-	// RB begin
-#if !defined(__ANDROID__) && !defined(USE_VULKAN)
-	GLuint				global_vao;
-#endif
-	// RB end
 };
 
 
@@ -291,7 +230,7 @@ public:
 
 	virtual void			ResetGuiModels() = 0;
 
-	virtual void			InitOpenGL() = 0;
+	virtual void			InitBackend() = 0;
 
 	virtual void			ShutdownOpenGL() = 0;
 
@@ -351,21 +290,21 @@ public:
 	virtual void			SetGLState( const uint64 glState ) = 0;
 
 	virtual void			DrawFilled( const idVec4& color, float x, float y, float w, float h ) = 0;
-	virtual void			DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial* material ) = 0;
-	void			DrawStretchPic( const idVec4& rect, const idVec4& st, const idMaterial* material )
+	virtual void			DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial* material, float z = 0.0f ) = 0;
+	void			DrawStretchPic( const idVec4& rect, const idVec4& st, const idMaterial* material, float z = 0.0f )
 	{
-		DrawStretchPic( rect.x, rect.y, rect.z, rect.w, st.x, st.y, st.z, st.w, material );
+		DrawStretchPic( rect.x, rect.y, rect.z, rect.w, st.x, st.y, st.z, st.w, material, z );
 	}
-	virtual void			DrawStretchPic( const idVec4& topLeft, const idVec4& topRight, const idVec4& bottomRight, const idVec4& bottomLeft, const idMaterial* material ) = 0;
+	virtual void			DrawStretchPic( const idVec4& topLeft, const idVec4& topRight, const idVec4& bottomRight, const idVec4& bottomLeft, const idMaterial* material, float z = 0.0f ) = 0;
 	virtual void			DrawStretchTri( const idVec2& p1, const idVec2& p2, const idVec2& p3, const idVec2& t1, const idVec2& t2, const idVec2& t3, const idMaterial* material ) = 0;
 	virtual idDrawVert* 	AllocTris( int numVerts, const triIndex_t* indexes, int numIndexes, const idMaterial* material, const stereoDepthType_t stereoType = STEREO_DEPTH_TYPE_NONE ) = 0;
 
 	virtual void			PrintMemInfo( MemInfo_t* mi ) = 0;
 
-	virtual void			DrawSmallChar( int x, int y, int ch ) = 0;
-	virtual void			DrawSmallStringExt( int x, int y, const char* string, const idVec4& setColor, bool forceColor ) = 0;
-	virtual void			DrawBigChar( int x, int y, int ch ) = 0;
-	virtual void			DrawBigStringExt( int x, int y, const char* string, const idVec4& setColor, bool forceColor ) = 0;
+	virtual void				DrawSmallChar( int x, int y, int ch ) = 0;
+	virtual void				DrawSmallStringExt( int x, int y, const char* string, const idVec4& setColor, bool forceColor ) = 0;
+	virtual void				DrawBigChar( int x, int y, int ch ) = 0;
+	virtual void				DrawBigStringExt( int x, int y, const char* string, const idVec4& setColor, bool forceColor ) = 0;
 
 	// dump all 2D drawing so far this frame to the demo file
 	virtual void			WriteDemoPics() = 0;
@@ -398,14 +337,14 @@ public:
 
 	// aviDemo uses this.
 	// Will automatically tile render large screen shots if necessary
-	// Samples is the number of jittered frames for anti-aliasing
 	// If ref == NULL, common->UpdateScreen will be used
 	// This will perform swapbuffers, so it is NOT an approppriate way to
 	// generate image files that happen during gameplay, as for savegame
 	// markers.  Use WriteRender() instead.
-	virtual void			TakeScreenshot( int width, int height, const char* fileName, int samples, struct renderView_s* ref, int exten ) = 0;
+	virtual void			TakeScreenshot( int width, int height, const char* fileName, struct renderView_s* ref ) = 0;
 
 	// RB
+	virtual bool			IsTakingScreenshot() = 0;
 	virtual byte*			CaptureRenderToBuffer( int width, int height, renderView_t* ref ) = 0;
 
 	// the render output can be cropped down to a subset of the real screen, as
@@ -418,6 +357,7 @@ public:
 	// then perform all desired rendering, then capture to an image
 	// if the specified physical dimensions are larger than the current cropped region, they will be cut down to fit
 	virtual void			CropRenderSize( int width, int height ) = 0;
+	virtual void            CropRenderSize( int x, int y, int width, int height, bool topLeftAncor ) = 0;
 	virtual void			CaptureRenderToImage( const char* imageName, bool clearColorAfterCopy = false ) = 0;
 	// fixAlpha will set all the alpha channel values to 0xff, which allows screen captures
 	// to use the default tga loading code without having dimmed down areas in many places

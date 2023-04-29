@@ -178,7 +178,7 @@ void idRenderModelStatic::List() const
 		totalTris += surf->geometry->numIndexes / 3;
 		totalVerts += surf->geometry->numVerts;
 	}
-	common->Printf( "%c%4ik %3i %4i %4i %s", closed, totalBytes / 1024, NumSurfaces(), totalVerts, totalTris, Name() );
+	common->Printf( "%c%4ik %3i %4i %4i '%s'", closed, totalBytes / 1024, NumSurfaces(), totalVerts, totalTris, Name() );
 
 	if( IsDynamicModel() == DM_CACHED )
 	{
@@ -295,7 +295,7 @@ idRenderModelStatic::PartialInitFromFile
 void idRenderModelStatic::PartialInitFromFile( const char* fileName )
 {
 	fastLoad = true;
-	InitFromFile( fileName );
+	InitFromFile( fileName, nullptr );
 }
 
 /*
@@ -303,20 +303,22 @@ void idRenderModelStatic::PartialInitFromFile( const char* fileName )
 idRenderModelStatic::InitFromFile
 ================
 */
-void idRenderModelStatic::InitFromFile( const char* fileName )
+void idRenderModelStatic::InitFromFile( const char* fileName, const idImportOptions* options )
 {
 	bool loaded;
 	idStr extension;
 
 	InitEmpty( fileName );
 
-	// FIXME: load new .proc map format
-
 	ID_TIME_T sourceTimeStamp;
 
 	name.ExtractFileExtension( extension );
-
-	if( extension.Icmp( "ase" ) == 0 )
+	if( extension.Icmp( "glb" ) == 0 || extension.Icmp( "gltf" ) == 0 )
+	{
+		loaded = false;
+		reloadable = true;
+	}
+	else if( extension.Icmp( "ase" ) == 0 )
 	{
 		loaded		= LoadASE( name, &sourceTimeStamp );
 		reloadable	= true;
@@ -465,15 +467,22 @@ bool idRenderModelStatic::LoadBinaryModel( idFile* file, const ID_TIME_T sourceT
 			file->ReadBig( numInFile );
 			if( numInFile == 0 )
 			{
-				tri.preLightShadowVertexes = NULL;
+				//tri.preLightShadowVertexes = NULL;
 			}
 			else
 			{
-				R_AllocStaticTriSurfPreLightShadowVerts( &tri, numInFile );
+// jmarshall - keep compatibility.
+				//R_AllocStaticTriSurfPreLightShadowVerts( &tri, numInFile );
+				//for( int j = 0; j < numInFile; j++ )
+				//{
+				//	file->ReadVec4( tri.preLightShadowVertexes[ j ].xyzw );
+				//}
 				for( int j = 0; j < numInFile; j++ )
 				{
-					file->ReadVec4( tri.preLightShadowVertexes[ j ].xyzw );
+					idVec4 stub;
+					file->ReadVec4( stub );
 				}
+// jmarshall end
 			}
 
 			file->ReadBig( tri.numIndexes );
@@ -506,21 +515,21 @@ bool idRenderModelStatic::LoadBinaryModel( idFile* file, const ID_TIME_T sourceT
 				R_AllocStaticTriSurfDupVerts( &tri, tri.numDupVerts );
 				file->ReadBigArray( tri.dupVerts, tri.numDupVerts * 2 );
 			}
-
-			file->ReadBig( tri.numSilEdges );
-			tri.silEdges = NULL;
-			if( tri.numSilEdges > 0 )
+// jmarshall - keep compatibility.
+			int numSilEdges = 0;
+			file->ReadBig( numSilEdges );
+			if( numSilEdges > 0 )
 			{
-				R_AllocStaticTriSurfSilEdges( &tri, tri.numSilEdges );
-				assert( tri.silEdges != NULL );
-				for( int j = 0; j < tri.numSilEdges; j++ )
+				for( int j = 0; j < numSilEdges; j++ )
 				{
-					file->ReadBig( tri.silEdges[j].p1 );
-					file->ReadBig( tri.silEdges[j].p2 );
-					file->ReadBig( tri.silEdges[j].v1 );
-					file->ReadBig( tri.silEdges[j].v2 );
+					triIndex_t stub;
+					file->ReadBig( stub );
+					file->ReadBig( stub );
+					file->ReadBig( stub );
+					file->ReadBig( stub );
 				}
 			}
+// jmarshall end
 
 			file->ReadBig( temp );
 			tri.dominantTris = NULL;
@@ -537,16 +546,17 @@ bool idRenderModelStatic::LoadBinaryModel( idFile* file, const ID_TIME_T sourceT
 					file->ReadFloat( tri.dominantTris[j].normalizationScale[2] );
 				}
 			}
-
-			file->ReadBig( tri.numShadowIndexesNoFrontCaps );
-			file->ReadBig( tri.numShadowIndexesNoCaps );
-			file->ReadBig( tri.shadowCapPlaneBits );
+// jmarshall - keep compatibility.
+			int stub;
+			file->ReadBig( stub );
+			file->ReadBig( stub );
+			file->ReadBig( stub );
+// jmarshall end
 
 			tri.ambientSurface = NULL;
 			tri.nextDeferredFree = NULL;
 			tri.indexCache = 0;
 			tri.ambientCache = 0;
-			tri.shadowCache = 0;
 		}
 	}
 
@@ -646,18 +656,21 @@ void idRenderModelStatic::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp 
 				}
 			}
 
-			if( tri.preLightShadowVertexes != NULL )
-			{
-				file->WriteBig( tri.numVerts * 2 );
-				for( int j = 0; j < tri.numVerts * 2; j++ )
-				{
-					file->WriteVec4( tri.preLightShadowVertexes[ j ].xyzw );
-				}
-			}
-			else
-			{
-				file->WriteBig( ( int ) 0 );
-			}
+// jmarshall - keep compatibility.
+			//if( tri.preLightShadowVertexes != NULL )
+			//{
+			//	file->WriteBig( tri.numVerts * 2 );
+			//	for( int j = 0; j < tri.numVerts * 2; j++ )
+			//	{
+			//		file->WriteVec4( tri.preLightShadowVertexes[ j ].xyzw );
+			//	}
+			//}
+			//else
+			//{
+			//	file->WriteBig( ( int ) 0 );
+			//}
+			file->WriteBig( ( int )0 );
+// jmarshall end
 
 			file->WriteBig( tri.numIndexes );
 
@@ -692,17 +705,19 @@ void idRenderModelStatic::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp 
 				file->WriteBigArray( tri.dupVerts, tri.numDupVerts * 2 );
 			}
 
-			file->WriteBig( tri.numSilEdges );
-			if( tri.numSilEdges > 0 )
-			{
-				for( int j = 0; j < tri.numSilEdges; j++ )
-				{
-					file->WriteBig( tri.silEdges[j].p1 );
-					file->WriteBig( tri.silEdges[j].p2 );
-					file->WriteBig( tri.silEdges[j].v1 );
-					file->WriteBig( tri.silEdges[j].v2 );
-				}
-			}
+// jmarshall - keep compatibility.
+			file->WriteBig( ( int ) 0 );
+			//if( tri.numSilEdges > 0 )
+			//{
+			//	for( int j = 0; j < tri.numSilEdges; j++ )
+			//	{
+			//		file->WriteBig( tri.silEdges[j].p1 );
+			//		file->WriteBig( tri.silEdges[j].p2 );
+			//		file->WriteBig( tri.silEdges[j].v1 );
+			//		file->WriteBig( tri.silEdges[j].v2 );
+			//	}
+			//}
+// jmarshall end
 
 			file->WriteBig( tri.dominantTris != NULL );
 			if( tri.dominantTris != NULL )
@@ -717,9 +732,11 @@ void idRenderModelStatic::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp 
 				}
 			}
 
-			file->WriteBig( tri.numShadowIndexesNoFrontCaps );
-			file->WriteBig( tri.numShadowIndexesNoCaps );
-			file->WriteBig( tri.shadowCapPlaneBits );
+// jmarshall - keep compatibility.
+			file->WriteBig( ( int ) 0 ); // tri.numShadowIndexesNoFrontCaps
+			file->WriteBig( ( int ) 0 ); // tri.numShadowIndexesNoCaps
+			file->WriteBig( ( int ) 0 ); // tri.shadowCapPlaneBits );
+// jmarshall end
 		}
 	}
 
@@ -766,16 +783,6 @@ void idRenderModelStatic::ExportOBJ( idFile* objFile, idFile* mtlFile, ID_TIME_T
 
 			srfTriangles_t& tri = *surfaces[i].geometry;
 
-			//file->WriteVec3( tri.bounds[0] );
-			//file->WriteVec3( tri.bounds[1] );
-
-			// TODO print additional info ?
-
-			//file->WriteBig( tri.generateNormals );
-			//file->WriteBig( tri.tangentsCalculated );
-			//file->WriteBig( tri.perfectHull );
-			//file->WriteBig( tri.referencedIndexes );
-
 			if( tri.numVerts > 0 && tri.verts != NULL )
 			{
 				for( int j = 0; j < tri.numVerts; j++ )
@@ -796,12 +803,6 @@ void idRenderModelStatic::ExportOBJ( idFile* objFile, idFile* mtlFile, ID_TIME_T
 
 					objFile->Printf( "vn %1.6f %1.6f %1.6f\n", n.x, n.y, n.z );
 				}
-
-				//file->WriteBigArray( tri.verts[j].st, 2 );
-				//file->WriteBigArray( tri.verts[j].normal, 4 );
-				//file->WriteBigArray( tri.verts[j].tangent, 4 );
-				//file->WriteBigArray( tri.verts[j].color, sizeof( tri.verts[j].color ) / sizeof( tri.verts[j].color[0] ) );
-				//file->WriteBigArray( tri.verts[j].color2, sizeof( tri.verts[j].color2 ) / sizeof( tri.verts[j].color2[0] ) );
 			}
 
 			if( surfaces[i].shader != NULL && surfaces[i].shader->GetName() != NULL )
@@ -872,7 +873,7 @@ idRenderModelStatic::LoadModel
 void idRenderModelStatic::LoadModel()
 {
 	PurgeModel();
-	InitFromFile( name );
+	InitFromFile( name, nullptr );
 }
 
 /*
@@ -3853,6 +3854,15 @@ void idRenderModelStatic::TouchData()
 		// level keep list
 		declManager->FindMaterial( surf->shader->GetName() );
 	}
+}
+
+/*
+=================
+idRenderModelStatic::CreateBuffers
+=================
+*/
+void idRenderModelStatic::CreateBuffers( nvrhi::ICommandList* commandList )
+{
 }
 
 /*

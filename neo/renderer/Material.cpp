@@ -1275,6 +1275,11 @@ void idMaterial::ParseFragmentMap( idLexer& src, newShaderStage_t* newStage )
 			cubeMap = CF_CAMERA;
 			continue;
 		}
+		if( !token.Icmp( "quakeCubeMap" ) )
+		{
+			cubeMap = CF_QUAKE1;
+			continue;
+		}
 		if( !token.Icmp( "cubeMapSingle" ) )
 		{
 			cubeMap = CF_SINGLE;
@@ -1765,7 +1770,7 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 				}
 			}
 			ts->cinematic = idCinematic::Alloc();
-			ts->cinematic->InitFromFile( token.c_str(), loop );
+			ts->cinematic->InitFromFile( token.c_str(), loop, NULL );
 			continue;
 		}
 
@@ -1777,7 +1782,7 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 				continue;
 			}
 			ts->cinematic = new( TAG_MATERIAL ) idSndWindow();
-			ts->cinematic->InitFromFile( token.c_str(), true );
+			ts->cinematic->InitFromFile( token.c_str(), true, NULL );
 			continue;
 		}
 
@@ -1809,6 +1814,14 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 			str = R_ParsePastImageProgram( src );
 			idStr::Copynz( imageName, str, sizeof( imageName ) );
 			cubeMap = CF_CAMERA;
+			continue;
+		}
+
+		if( !token.Icmp( "quakeCubeMap" ) )
+		{
+			str = R_ParsePastImageProgram( src );
+			idStr::Copynz( imageName, str, sizeof( imageName ) );
+			cubeMap = CF_QUAKE1;
 			continue;
 		}
 
@@ -2135,8 +2148,9 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 		{
 			if( src.ReadTokenOnLine( &token ) )
 			{
-				newStage.vertexProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_VERTEX, "", 0, false );
-				newStage.fragmentProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_FRAGMENT, "", 0, false );
+				idList<shaderMacro_t> macros = { { "USE_GPU_SKINNING", "0" } };
+				newStage.vertexProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_VERTEX, "", macros, false );
+				newStage.fragmentProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_FRAGMENT, "", macros, false );
 			}
 			continue;
 		}
@@ -2144,7 +2158,8 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 		{
 			if( src.ReadTokenOnLine( &token ) )
 			{
-				newStage.fragmentProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_FRAGMENT, "", 0, false );
+				idList<shaderMacro_t> macros = { { "USE_GPU_SKINNING", "0" } };
+				newStage.fragmentProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_FRAGMENT, "", macros, false );
 			}
 			continue;
 		}
@@ -2152,7 +2167,8 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 		{
 			if( src.ReadTokenOnLine( &token ) )
 			{
-				newStage.vertexProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_VERTEX, "", 0, false );
+				idList<shaderMacro_t> macros = { { "USE_GPU_SKINNING", "0" } };
+				newStage.vertexProgram = renderProgManager.FindShader( token.c_str(), SHADER_STAGE_VERTEX, "", macros, false );
 			}
 			continue;
 		}
@@ -2195,7 +2211,7 @@ void idMaterial::ParseStage( idLexer& src, const textureRepeat_t trpDefault )
 	// if we are using newStage, allocate a copy of it
 	if( newStage.fragmentProgram || newStage.vertexProgram )
 	{
-		newStage.glslProgram = renderProgManager.FindGLSLProgram( GetName(), newStage.vertexProgram, newStage.fragmentProgram );
+		newStage.glslProgram = renderProgManager.FindProgram( GetName(), newStage.vertexProgram, newStage.fragmentProgram, BINDING_LAYOUT_POST_PROCESS_INGAME );
 		ss->newStage = ( newShaderStage_t* )Mem_Alloc( sizeof( newStage ), TAG_MATERIAL );
 		*( ss->newStage ) = newStage;
 	}
@@ -2671,14 +2687,6 @@ void idMaterial::ParseMaterial( idLexer& src )
 		else if( !token.Icmp( "twoSided" ) )
 		{
 			cullType = CT_TWO_SIDED;
-			// twoSided implies no-shadows, because the shadow
-			// volume would be coplanar with the surface, giving depth fighting
-			// we could make this no-self-shadows, but it may be more important
-			// to receive shadows from no-self-shadow monsters
-			if( !r_useShadowMapping.GetBool() ) // motorsep 11-08-2014; when shadow mapping is on, we allow two-sided surfaces to cast shadows
-			{
-				SetMaterialFlag( MF_NOSHADOWS );
-			}
 		}
 		// backSided
 		else if( !token.Icmp( "backSided" ) )
@@ -3721,7 +3729,7 @@ const shaderStage_t* idMaterial::GetBumpStage() const
 idMaterial::ReloadImages
 ===================
 */
-void idMaterial::ReloadImages( bool force ) const
+void idMaterial::ReloadImages( bool force, nvrhi::ICommandList* commandList ) const
 {
 	for( int i = 0 ; i < numStages ; i++ )
 	{
@@ -3731,13 +3739,13 @@ void idMaterial::ReloadImages( bool force ) const
 			{
 				if( stages[i].newStage->fragmentProgramImages[j] )
 				{
-					stages[i].newStage->fragmentProgramImages[j]->Reload( force );
+					stages[i].newStage->fragmentProgramImages[j]->Reload( force, commandList );
 				}
 			}
 		}
 		else if( stages[i].texture.image )
 		{
-			stages[i].texture.image->Reload( force );
+			stages[i].texture.image->Reload( force, commandList );
 		}
 	}
 }

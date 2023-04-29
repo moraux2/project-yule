@@ -4,6 +4,7 @@
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2013-2020 Robert Beckebans
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -31,7 +32,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 
 #include "RenderCommon.h"
-#include "libs/imgui/imgui.h"
+#include "imgui.h"
 
 const float idGuiModel::STEREO_DEPTH_NEAR = 0.0f;
 const float idGuiModel::STEREO_DEPTH_MID  = 0.5f;
@@ -158,15 +159,18 @@ void idGuiModel::EmitSurfaces( float modelMatrix[16], float modelViewMatrix[16],
 		drawSurf->ambientCache = vertexBlock;
 		// build a vertCacheHandle_t that points inside the allocated block
 		drawSurf->indexCache = indexBlock + ( ( int64 )( guiSurf.firstIndex * sizeof( triIndex_t ) ) << VERTCACHE_OFFSET_SHIFT );
-		drawSurf->shadowCache = 0;
 		drawSurf->jointCache = 0;
 		drawSurf->frontEndGeo = NULL;
 		drawSurf->space = guiSpace;
 		drawSurf->material = shader;
 		drawSurf->extraGLState = guiSurf.glState;
 		drawSurf->scissorRect = tr.viewDef->scissor;
+		if( !guiSurf.clipRect.IsEmpty() )
+		{
+			drawSurf->scissorRect.Intersect( guiSurf.clipRect );
+		}
 		drawSurf->sort = shader->GetSort();
-		drawSurf->renderZFail = 0;
+
 		// process the shader expressions for conditionals / color / texcoords
 		const float*	constRegs = shader->ConstantRegisters();
 		if( constRegs )
@@ -234,7 +238,7 @@ idGuiModel::EmitFullScreen
 Creates a view that covers the screen and emit the surfaces
 ================
 */
-void idGuiModel::EmitFullScreen()
+void idGuiModel::EmitFullScreen( Framebuffer* renderTarget )
 {
 	if( surfaces[0].numIndexes == 0 )
 	{
@@ -245,7 +249,19 @@ void idGuiModel::EmitFullScreen()
 
 	viewDef_t* viewDef = ( viewDef_t* )R_ClearedFrameAlloc( sizeof( *viewDef ), FRAME_ALLOC_VIEW_DEF );
 	viewDef->is2Dgui = true;
-	tr.GetCroppedViewport( &viewDef->viewport );
+
+	if( renderTarget )
+	{
+		viewDef->targetRender = renderTarget;
+		viewDef->viewport.x1 = 0;
+		viewDef->viewport.y1 = 0;
+		viewDef->viewport.x2 = renderTarget->GetWidth();
+		viewDef->viewport.y2 = renderTarget->GetHeight();
+	}
+	else
+	{
+		tr.GetCroppedViewport( &viewDef->viewport );
+	}
 
 	bool stereoEnabled = ( renderSystem->GetStereo3DMode() != STEREO3D_OFF );
 	if( stereoEnabled )
@@ -263,38 +279,43 @@ void idGuiModel::EmitFullScreen()
 		}
 	}
 
+	idVec2 screenSize( renderSystem->GetVirtualWidth(), renderSystem->GetVirtualHeight() );
+
+	if( renderTarget )
+	{
+		screenSize.x = renderTarget->GetWidth();
+		screenSize.y = renderTarget->GetHeight();
+	}
+
+	float xScale = 1.0f / screenSize.x;
+	float yScale = -1.0f / screenSize.y;  // RB: flip y for DX12 & Vulkan
+
+	float zScale = -1.0f;
+
 	viewDef->scissor.x1 = 0;
 	viewDef->scissor.y1 = 0;
 	viewDef->scissor.x2 = viewDef->viewport.x2 - viewDef->viewport.x1;
 	viewDef->scissor.y2 = viewDef->viewport.y2 - viewDef->viewport.y1;
 
 	// RB: IMPORTANT - the projectionMatrix has a few changes to make it work with Vulkan
-	viewDef->projectionMatrix[0 * 4 + 0] = 2.0f / renderSystem->GetVirtualWidth();
+	viewDef->projectionMatrix[0 * 4 + 0] = 2.f * xScale;
 	viewDef->projectionMatrix[0 * 4 + 1] = 0.0f;
 	viewDef->projectionMatrix[0 * 4 + 2] = 0.0f;
 	viewDef->projectionMatrix[0 * 4 + 3] = 0.0f;
 
 	viewDef->projectionMatrix[1 * 4 + 0] = 0.0f;
-#if defined(USE_VULKAN)
-	viewDef->projectionMatrix[1 * 4 + 1] = 2.0f / renderSystem->GetVirtualHeight();
-#else
-	viewDef->projectionMatrix[1 * 4 + 1] = -2.0f / renderSystem->GetVirtualHeight();
-#endif
+	viewDef->projectionMatrix[1 * 4 + 1] = 2.f * yScale;
 	viewDef->projectionMatrix[1 * 4 + 2] = 0.0f;
 	viewDef->projectionMatrix[1 * 4 + 3] = 0.0f;
 
 	viewDef->projectionMatrix[2 * 4 + 0] = 0.0f;
 	viewDef->projectionMatrix[2 * 4 + 1] = 0.0f;
-	viewDef->projectionMatrix[2 * 4 + 2] = -1.0f;
+	viewDef->projectionMatrix[2 * 4 + 2] = zScale;
 	viewDef->projectionMatrix[2 * 4 + 3] = 0.0f;
 
-	viewDef->projectionMatrix[3 * 4 + 0] = -1.0f; // RB: was -2.0f
-#if defined(USE_VULKAN)
-	viewDef->projectionMatrix[3 * 4 + 1] = -1.0f;
-#else
-	viewDef->projectionMatrix[3 * 4 + 1] = 1.0f;
-#endif
-	viewDef->projectionMatrix[3 * 4 + 2] = 0.0f; // RB: was 1.0f
+	viewDef->projectionMatrix[3 * 4 + 0] = -( screenSize.x * xScale );
+	viewDef->projectionMatrix[3 * 4 + 1] = -( screenSize.y * yScale );
+	viewDef->projectionMatrix[3 * 4 + 2] = 0.0f;
 	viewDef->projectionMatrix[3 * 4 + 3] = 1.0f;
 
 	// make a tech5 renderMatrix for faster culling
@@ -323,6 +344,8 @@ void idGuiModel::EmitFullScreen()
 #endif
 
 	viewDef_t* oldViewDef = tr.viewDef;
+	viewDef->superView = oldViewDef;
+
 	tr.viewDef = viewDef;
 
 	EmitSurfaces( viewDef->worldSpace.modelMatrix, viewDef->worldSpace.modelViewMatrix,
@@ -330,7 +353,6 @@ void idGuiModel::EmitFullScreen()
 
 	tr.viewDef = oldViewDef;
 
-	// add the command to draw this view
 	R_AddDrawViewCmd( viewDef, true );
 }
 
@@ -342,9 +364,6 @@ idGuiModel::ImGui_RenderDrawLists
 */
 void idGuiModel::EmitImGui( ImDrawData* drawData )
 {
-	// NOTE: this implementation does not support scissor clipping for the indivudal draw commands
-	// but it is sufficient for things like com_showFPS
-
 	const float sysWidth = renderSystem->GetWidth();
 	const float sysHeight = renderSystem->GetHeight();
 
@@ -370,7 +389,9 @@ void idGuiModel::EmitImGui( ImDrawData* drawData )
 				mat = ( const idMaterial* )pcmd->TextureId;
 			}
 
-			idDrawVert* verts = renderSystem->AllocTris( numVerts, indexBufferOffset, numIndexes, mat, STEREO_DEPTH_TYPE_NONE );
+			idScreenRect clipRect = { static_cast<short>( pcmd->ClipRect.x ), static_cast<short>( pcmd->ClipRect.y ), static_cast<short>( pcmd->ClipRect.z ), static_cast<short>( pcmd->ClipRect.w ) };
+
+			idDrawVert* verts = AllocTris( numVerts, indexBufferOffset, numIndexes, mat, tr.currentGLState, STEREO_DEPTH_TYPE_NONE, clipRect );
 			if( verts == NULL )
 			{
 				continue;
@@ -439,7 +460,19 @@ void idGuiModel::AdvanceSurf()
 AllocTris
 =============
 */
-idDrawVert* idGuiModel::AllocTris( int vertCount, const triIndex_t* tempIndexes, int indexCount, const idMaterial* material, const uint64 glState, const stereoDepthType_t stereoType )
+idDrawVert* idGuiModel::AllocTris( int numVerts, const triIndex_t* indexes, int numIndexes, const idMaterial* material, const uint64 glState, const stereoDepthType_t stereoType )
+{
+	idScreenRect clipRect;
+	clipRect.Clear();
+	return AllocTris( numVerts, indexes, numIndexes, material, glState, stereoType, clipRect );
+}
+
+/*
+=============
+AllocTris
+=============
+*/
+idDrawVert* idGuiModel::AllocTris( int vertCount, const triIndex_t* tempIndexes, int indexCount, const idMaterial* material, const uint64 glState, const stereoDepthType_t stereoType, const idScreenRect& clipRect )
 {
 	if( material == NULL )
 	{
@@ -468,7 +501,7 @@ idDrawVert* idGuiModel::AllocTris( int vertCount, const triIndex_t* tempIndexes,
 
 	// break the current surface if we are changing to a new material or we can't
 	// fit the data into our allocated block
-	if( material != surf->material || glState != surf->glState || stereoType != surf->stereoType )
+	if( material != surf->material || glState != surf->glState || stereoType != surf->stereoType || !clipRect.Equals( surf->clipRect ) )
 	{
 		if( surf->numIndexes )
 		{
@@ -477,6 +510,7 @@ idDrawVert* idGuiModel::AllocTris( int vertCount, const triIndex_t* tempIndexes,
 		surf->material = material;
 		surf->glState = glState;
 		surf->stereoType = stereoType;
+		surf->clipRect = clipRect;
 	}
 
 	int startVert = numVerts;

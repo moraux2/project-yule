@@ -103,7 +103,11 @@ public:
 	}
 };
 
-#define SCOPED_PROFILE_EVENT( x ) idScopedProfileEvent scopedProfileEvent_##__LINE__( x )
+#if USE_OPTICK
+	#define SCOPED_PROFILE_EVENT( x ) OPTICK_EVENT( x )
+#else
+	#define SCOPED_PROFILE_EVENT( x ) idScopedProfileEvent scopedProfileEvent_##__LINE__( x )
+#endif
 
 ID_INLINE bool BeginTraceRecording( const char* szName )
 {
@@ -167,6 +171,7 @@ struct MemInfo_t
 
 struct mpMap_t
 {
+	mpMap_t& operator=( mpMap_t&& src ) = default;
 
 	void operator=( const mpMap_t& src )
 	{

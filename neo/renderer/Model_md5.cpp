@@ -522,15 +522,13 @@ void idMD5Mesh::UpdateSurface( const struct renderEntity_s* ent, const idJointMa
 	tri->mirroredVerts = deformInfo->mirroredVerts;
 	tri->numDupVerts = deformInfo->numDupVerts;
 	tri->dupVerts = deformInfo->dupVerts;
-	tri->numSilEdges = deformInfo->numSilEdges;
-	tri->silEdges = deformInfo->silEdges;
 
 	tri->indexCache = deformInfo->staticIndexCache;
 
 	tri->numVerts = deformInfo->numOutputVerts;
 
 	// RB: added check wether GPU skinning is available at all
-	if( r_useGPUSkinning.GetBool() && glConfig.gpuSkinningAvailable )
+	if( r_useGPUSkinning.GetBool() )
 	{
 		if( tri->verts != NULL && tri->verts != deformInfo->verts )
 		{
@@ -538,7 +536,6 @@ void idMD5Mesh::UpdateSurface( const struct renderEntity_s* ent, const idJointMa
 		}
 		tri->verts = deformInfo->verts;
 		tri->ambientCache = deformInfo->staticAmbientCache;
-		tri->shadowCache = deformInfo->staticShadowCache;
 		tri->referencedVerts = true;
 	}
 	else
@@ -706,7 +703,7 @@ void idRenderModelMD5::ParseJoint( idLexer& parser, idMD5Joint* joint, idJointQu
 idRenderModelMD5::InitFromFile
 ====================
 */
-void idRenderModelMD5::InitFromFile( const char* fileName )
+void idRenderModelMD5::InitFromFile( const char* fileName, const idImportOptions* options )
 {
 	name = fileName;
 	LoadModel();
@@ -800,7 +797,9 @@ bool idRenderModelMD5::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTime
 		file->ReadBig( deform.numIndexes );
 		file->ReadBig( deform.numMirroredVerts );
 		file->ReadBig( deform.numDupVerts );
-		file->ReadBig( deform.numSilEdges );
+
+		int numSilEdges;
+		file->ReadBig( numSilEdges );
 
 		srfTriangles_t	tri;
 		memset( &tri, 0, sizeof( srfTriangles_t ) );
@@ -835,29 +834,19 @@ bool idRenderModelMD5::LoadBinaryModel( idFile* file, const ID_TIME_T sourceTime
 			deform.dupVerts = tri.dupVerts;
 			file->ReadBigArray( deform.dupVerts, deform.numDupVerts * 2 );
 		}
-
-		if( deform.numSilEdges > 0 )
+// jmarshall - compatibility
+		if( numSilEdges > 0 )
 		{
-			R_AllocStaticTriSurfSilEdges( &tri, deform.numSilEdges );
-			deform.silEdges = tri.silEdges;
-			assert( deform.silEdges != NULL );
-			for( int j = 0; j < deform.numSilEdges; j++ )
+			for( int j = 0; j < numSilEdges; j++ )
 			{
-				file->ReadBig( deform.silEdges[j].p1 );
-				file->ReadBig( deform.silEdges[j].p2 );
-				file->ReadBig( deform.silEdges[j].v1 );
-				file->ReadBig( deform.silEdges[j].v2 );
+				triIndex_t stub;
+				file->ReadBig( stub );
+				file->ReadBig( stub );
+				file->ReadBig( stub );
+				file->ReadBig( stub );
 			}
 		}
-
-		idShadowVertSkinned* shadowVerts = ( idShadowVertSkinned* ) Mem_Alloc( ALIGN( deform.numOutputVerts * 2 * sizeof( idShadowVertSkinned ), 16 ), TAG_MODEL );
-		idShadowVertSkinned::CreateShadowCache( shadowVerts, deform.verts, deform.numOutputVerts );
-
-		deform.staticAmbientCache = vertexCache.AllocStaticVertex( deform.verts, ALIGN( deform.numOutputVerts * sizeof( idDrawVert ), VERTEX_CACHE_ALIGN ) );
-		deform.staticIndexCache = vertexCache.AllocStaticIndex( deform.indexes, ALIGN( deform.numIndexes * sizeof( triIndex_t ), INDEX_CACHE_ALIGN ) );
-		deform.staticShadowCache = vertexCache.AllocStaticVertex( shadowVerts, ALIGN( deform.numOutputVerts * 2 * sizeof( idShadowVertSkinned ), VERTEX_CACHE_ALIGN ) );
-
-		Mem_Free( shadowVerts );
+// jmarshall end
 
 		file->ReadBig( meshes[i].surfaceNum );
 	}
@@ -937,7 +926,8 @@ void idRenderModelMD5::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp ) c
 		file->WriteBig( deform.numIndexes );
 		file->WriteBig( deform.numMirroredVerts );
 		file->WriteBig( deform.numDupVerts );
-		file->WriteBig( deform.numSilEdges );
+		int silDummy = 0;
+		file->WriteBig( silDummy ); // deform.numSilEdges
 
 		if( deform.numOutputVerts > 0 )
 		{
@@ -958,17 +948,6 @@ void idRenderModelMD5::WriteBinaryModel( idFile* file, ID_TIME_T* _timeStamp ) c
 		if( deform.numDupVerts > 0 )
 		{
 			file->WriteBigArray( deform.dupVerts, deform.numDupVerts * 2 );
-		}
-
-		if( deform.numSilEdges > 0 )
-		{
-			for( int j = 0; j < deform.numSilEdges; j++ )
-			{
-				file->WriteBig( deform.silEdges[j].p1 );
-				file->WriteBig( deform.silEdges[j].p2 );
-				file->WriteBig( deform.silEdges[j].v1 );
-				file->WriteBig( deform.silEdges[j].v2 );
-			}
 		}
 
 		file->WriteBig( meshes[i].surfaceNum );
@@ -1093,6 +1072,15 @@ void idRenderModelMD5::LoadModel()
 	fileSystem->ReadFile( name, NULL, &timeStamp );
 
 	common->UpdateLevelLoadPacifier();
+}
+
+void idRenderModelMD5::CreateBuffers( nvrhi::ICommandList* commandList )
+{
+	for( int i = 0; i < meshes.Num(); i++ )
+	{
+		auto& deform = *meshes[i].deformInfo;
+		R_CreateDeformStaticVertices( meshes[i].deformInfo, commandList );
+	}
 }
 
 /*

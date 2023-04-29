@@ -53,14 +53,15 @@ public:
 		av_freep( &data );
 #elif defined(USE_BINKDEC)
 		Mem_Free( data );
+		data = NULL;
 #endif
 	}
 	//Unused methods are stubs
 	void OnBufferStart( void* pBufferContext ) { }
 	void OnLoopEnd( void* pBufferContext ) { }
-	void OnStreamEnd( ) { }
+	void OnStreamEnd() { }
 	void OnVoiceError( void* pBufferContext, HRESULT Error ) { }
-	void OnVoiceProcessingPassEnd( ) { }
+	void OnVoiceProcessingPassEnd() { }
 	void OnVoiceProcessingPassStart( UINT32 BytesRequired ) { }
 };
 
@@ -107,7 +108,11 @@ void CinematicAudio_XAudio2::InitAudio( void* audioContext )
 			return;
 		}
 	}
+#if	LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59,37,100)
+	voiceFormatcine.nChannels = dec_ctx2->ch_layout.nb_channels; //fixed
+#else
 	voiceFormatcine.nChannels = dec_ctx2->channels; //fixed
+#endif
 	voiceFormatcine.nSamplesPerSec = dec_ctx2->sample_rate; //fixed
 #elif defined(USE_BINKDEC)
 	AudioInfo* binkInfo = ( AudioInfo* )audioContext;
@@ -115,6 +120,9 @@ void CinematicAudio_XAudio2::InitAudio( void* audioContext )
 	bool use_ext = false;
 	voiceFormatcine.nChannels = binkInfo->nChannels; //fixed
 	voiceFormatcine.nSamplesPerSec = binkInfo->sampleRate; //fixed
+#else
+	int format_byte = 2;
+	bool use_ext = false;
 #endif
 
 	WAVEFORMATEXTENSIBLE exvoice = { 0 };
@@ -169,6 +177,13 @@ void CinematicAudio_XAudio2::PlayAudio( uint8_t* data, int size )
 	HRESULT hr;
 	if( FAILED( hr = pMusicSourceVoice1->SubmitSourceBuffer( &Packet ) ) )
 	{
+		// SRS - We should free the audio buffer if XAudio2 buffer submit failed
+#if defined(USE_FFMPEG)
+		av_freep( &data );
+#elif defined(USE_BINKDEC)
+		Mem_Free( data );
+		data = NULL;
+#endif
 		int fail = 1;
 	}
 

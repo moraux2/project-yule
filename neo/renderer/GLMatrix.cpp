@@ -4,6 +4,7 @@
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 Copyright (C) 2014 Robert Beckebans
+Copyright (C) 2022 Stephen Pridham
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -406,6 +407,7 @@ This uses the "infinite far z" trick
 */
 idCVar r_centerX( "r_centerX", "0", CVAR_FLOAT, "projection matrix center adjust" );
 idCVar r_centerY( "r_centerY", "0", CVAR_FLOAT, "projection matrix center adjust" );
+idCVar r_centerScale( "r_centerScale", "1", CVAR_FLOAT, "projection matrix center adjust" );
 
 inline float sgn( float a )
 {
@@ -469,17 +471,18 @@ void ModifyProjectionMatrix( viewDef_t* viewDef, const idPlane& clipPlane )
 	memcpy( viewDef->projectionMatrix, matrix, sizeof( float ) * 16 );
 }
 
-void R_SetupProjectionMatrix( viewDef_t* viewDef )
+void R_SetupProjectionMatrix( viewDef_t* viewDef, bool doJitter )
 {
 	// random jittering is usefull when multiple
 	// frames are going to be blended together
 	// for motion blurred anti-aliasing
 	float jitterx, jittery;
-	if( r_jitter.GetBool() )
+
+	if( R_UseTemporalAA() && doJitter && !( viewDef->renderView.rdflags & RDF_IRRADIANCE ) )
 	{
-		static idRandom random;
-		jitterx = random.RandomFloat();
-		jittery = random.RandomFloat();
+		idVec2 jitter = tr.backend.GetCurrentPixelOffset();
+		jitterx = jitter.x;
+		jittery = jitter.y;
 	}
 	else
 	{
@@ -492,6 +495,19 @@ void R_SetupProjectionMatrix( viewDef_t* viewDef )
 	//
 	const float zNear = ( viewDef->renderView.cramZNear ) ? ( r_znear.GetFloat() * 0.25f ) : r_znear.GetFloat();
 
+	const int viewWidth = viewDef->viewport.x2 - viewDef->viewport.x1 + 1;
+	const int viewHeight = viewDef->viewport.y2 - viewDef->viewport.y1 + 1;
+
+	// TODO integrate jitterx += viewDef->renderView.stereoScreenSeparation;
+
+	// this mimics the logic in the Donut Feature Demo
+	const float xoffset = -2.0f * jitterx / ( 1.0f * viewWidth );
+	const float yoffset = -2.0f * jittery / ( 1.0f * viewHeight );
+
+	float* projectionMatrix = doJitter ? viewDef->projectionMatrix : viewDef->unjitteredProjectionMatrix;
+
+#if 1
+
 	float ymax = zNear * tan( viewDef->renderView.fov_y * idMath::PI / 360.0f );
 	float ymin = -ymax;
 
@@ -501,63 +517,82 @@ void R_SetupProjectionMatrix( viewDef_t* viewDef )
 	const float width = xmax - xmin;
 	const float height = ymax - ymin;
 
-	const int viewWidth = viewDef->viewport.x2 - viewDef->viewport.x1 + 1;
-	const int viewHeight = viewDef->viewport.y2 - viewDef->viewport.y1 + 1;
+	projectionMatrix[0 * 4 + 0] = 2.0f * zNear / width;
+	projectionMatrix[1 * 4 + 0] = 0.0f;
+	projectionMatrix[2 * 4 + 0] = xoffset;
+	projectionMatrix[3 * 4 + 0] = 0.0f;
 
-	jitterx = jitterx * width / viewWidth;
-	jitterx += r_centerX.GetFloat();
-	jitterx += viewDef->renderView.stereoScreenSeparation;
-	xmin += jitterx * width;
-	xmax += jitterx * width;
-
-	jittery = jittery * height / viewHeight;
-	jittery += r_centerY.GetFloat();
-	ymin += jittery * height;
-	ymax += jittery * height;
-
-	// RB: IMPORTANT - the projectionMatrix has a few changes to make it work with Vulkan
-	// for a detailed explanation see https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
-
-	viewDef->projectionMatrix[0 * 4 + 0] = 2.0f * zNear / width;
-	viewDef->projectionMatrix[1 * 4 + 0] = 0.0f;
-	viewDef->projectionMatrix[2 * 4 + 0] = ( xmax + xmin ) / width;	// normally 0
-	viewDef->projectionMatrix[3 * 4 + 0] = 0.0f;
-
-	viewDef->projectionMatrix[0 * 4 + 1] = 0.0f;
-
-	// RB: Y axis now points down the screen
-#if defined(USE_VULKAN)
-	viewDef->projectionMatrix[1 * 4 + 1] = -2.0f * zNear / height;
-#else
-	viewDef->projectionMatrix[1 * 4 + 1] = 2.0f * zNear / height;
-#endif
-	viewDef->projectionMatrix[2 * 4 + 1] = ( ymax + ymin ) / height;	// normally 0
-	viewDef->projectionMatrix[3 * 4 + 1] = 0.0f;
+	projectionMatrix[0 * 4 + 1] = 0.0f;
+	projectionMatrix[1 * 4 + 1] = 2.0f * zNear / height;
+	projectionMatrix[2 * 4 + 1] = yoffset;
+	projectionMatrix[3 * 4 + 1] = 0.0f;
 
 	// this is the far-plane-at-infinity formulation, and
 	// crunches the Z range slightly so w=0 vertexes do not
 	// rasterize right at the wraparound point
-	viewDef->projectionMatrix[0 * 4 + 2] = 0.0f;
-	viewDef->projectionMatrix[1 * 4 + 2] = 0.0f;
-	viewDef->projectionMatrix[2 * 4 + 2] = -0.999f;			// adjust value to prevent imprecision issues
+	projectionMatrix[0 * 4 + 2] = 0.0f;
+	projectionMatrix[1 * 4 + 2] = 0.0f;
+	projectionMatrix[2 * 4 + 2] = -0.999f;			// adjust value to prevent imprecision issues
 
 	// RB: was -2.0f * zNear
-	// the transformation into window space has changed from [-1 .. -1] to [0 .. -1]
-	viewDef->projectionMatrix[3 * 4 + 2] = -1.0f * zNear;
+	// the transformation into window space has changed from [-1 .. 1] to [0 .. 1]
+	projectionMatrix[3 * 4 + 2] = -1.0f * zNear;
 
-	viewDef->projectionMatrix[0 * 4 + 3] = 0.0f;
-	viewDef->projectionMatrix[1 * 4 + 3] = 0.0f;
-	viewDef->projectionMatrix[2 * 4 + 3] = -1.0f;
-	viewDef->projectionMatrix[3 * 4 + 3] = 0.0f;
+	projectionMatrix[0 * 4 + 3] = 0.0f;
+	projectionMatrix[1 * 4 + 3] = 0.0f;
+	projectionMatrix[2 * 4 + 3] = -1.0f;
+	projectionMatrix[3 * 4 + 3] = 0.0f;
+
+#else
+
+	// alternative far plane at infinity Z for better precision in the distance but still no reversed depth buffer
+	// see Foundations of Game Engine Development 2, chapter 6.3
+
+	float aspect = viewDef->renderView.fov_x / viewDef->renderView.fov_y;
+
+	float yScale = 1.0f / ( tanf( 0.5f * DEG2RAD( viewDef->renderView.fov_y ) ) );
+	float xScale = yScale / aspect;
+
+	const float epsilon = 1.9073486328125e-6F;	// 2^-19;
+	const float zFar = 160000;
+
+	//float k = zFar / ( zFar - zNear );
+	float k = 1.0f - epsilon;
+
+	projectionMatrix[0 * 4 + 0] = xScale;
+	projectionMatrix[1 * 4 + 0] = 0.0f;
+	projectionMatrix[2 * 4 + 0] = xoffset;
+	projectionMatrix[3 * 4 + 0] = 0.0f;
+
+	projectionMatrix[0 * 4 + 1] = 0.0f;
+	projectionMatrix[1 * 4 + 1] = yScale;
+	projectionMatrix[2 * 4 + 1] = yoffset;
+	projectionMatrix[3 * 4 + 1] = 0.0f;
+
+	projectionMatrix[0 * 4 + 2] = 0.0f;
+	projectionMatrix[1 * 4 + 2] = 0.0f;
+
+	// adjust value to prevent imprecision issues
+	projectionMatrix[2 * 4 + 2] = -k;
+
+	// the clip space Z range has changed from [-1 .. 1] to [0 .. 1] for DX12 & Vulkan
+	projectionMatrix[3 * 4 + 2] = -k * zNear;
+
+	projectionMatrix[0 * 4 + 3] = 0.0f;
+	projectionMatrix[1 * 4 + 3] = 0.0f;
+	projectionMatrix[2 * 4 + 3] = -1.0f;
+	projectionMatrix[3 * 4 + 3] = 0.0f;
+
+#endif
 
 	if( viewDef->renderView.flipProjection )
 	{
-		viewDef->projectionMatrix[1 * 4 + 1] = -viewDef->projectionMatrix[1 * 4 + 1];
-		viewDef->projectionMatrix[1 * 4 + 3] = -viewDef->projectionMatrix[1 * 4 + 3];
+		projectionMatrix[1 * 4 + 1] = -projectionMatrix[1 * 4 + 1];
+		projectionMatrix[1 * 4 + 3] = -projectionMatrix[1 * 4 + 3];
 	}
 
 	// SP Begin
-	if( viewDef->isObliqueProjection )
+	if( viewDef->isObliqueProjection && doJitter )
 	{
 		R_ObliqueProjection( viewDef );
 	}
@@ -621,10 +656,6 @@ void R_SetupProjectionMatrix2( const viewDef_t* viewDef, const float zNear, cons
 		projectionMatrix[1 * 4 + 1] = -viewDef->projectionMatrix[1 * 4 + 1];
 		projectionMatrix[1 * 4 + 3] = -viewDef->projectionMatrix[1 * 4 + 3];
 	}
-
-#if defined(USE_VULKAN)
-	projectionMatrix[1 * 4 + 1] *= -1.0F;
-#endif
 }
 
 /*
@@ -635,9 +666,11 @@ create a matrix with similar functionality like gluUnproject, project from windo
 */
 void R_SetupUnprojection( viewDef_t* viewDef )
 {
+	// RB: I don't like that this doesn't work
+	//idRenderMatrix::Inverse( *( idRenderMatrix* ) viewDef->projectionMatrix, viewDef->unprojectionToCameraRenderMatrix );
+
 	R_MatrixFullInverse( viewDef->projectionMatrix, viewDef->unprojectionToCameraMatrix );
 	idRenderMatrix::Transpose( *( idRenderMatrix* )viewDef->unprojectionToCameraMatrix, viewDef->unprojectionToCameraRenderMatrix );
-
 
 	R_MatrixMultiply( viewDef->worldSpace.modelViewMatrix, viewDef->projectionMatrix, viewDef->unprojectionToWorldMatrix );
 	R_MatrixFullInverse( viewDef->unprojectionToWorldMatrix, viewDef->unprojectionToWorldMatrix );
@@ -690,6 +723,7 @@ void R_ObliqueProjection( viewDef_t* parms )
 	idPlane pB = parms->clipPlanes[0];
 	idPlane cp; // camera space plane
 	R_MatrixTranspose( parms->worldSpace.modelViewMatrix, mvt );
+
 	// transform plane (which is set to the surface we're mirroring about's plane) to camera space
 	R_GlobalPlaneToLocal( mvt, pB, cp );
 

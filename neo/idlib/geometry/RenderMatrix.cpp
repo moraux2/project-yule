@@ -53,12 +53,10 @@ If you have questions concerning this license or the applicable additional terms
 
 //#define CLIP_SPACE_OGL		// the OpenGL clip space Z is in the range [-1, 1]
 
-// RB: Vulkan requires the clip space Z is in the range [0, 1]
+// RB: DX12 & Vulkan require the clip space Z is in the range [0, 1]
 // This change is especially important for all kinds of light bounding box -> clip space transformations so
 // the depth bounding tests clipping tests work properly
-#if defined( USE_VULKAN )
-	#define CLIP_SPACE_D3D	1
-#endif
+#define CLIP_SPACE_D3D	1
 
 /*
 ================================================================================================
@@ -762,6 +760,19 @@ void idRenderMatrix::CreateProjectionMatrixFov( float xFovDegrees, float yFovDeg
 	yMax += yOffset;
 
 	CreateProjectionMatrix( xMin, xMax, yMin, yMax, zNear, zFar, out );
+}
+
+// SP
+void idRenderMatrix::CreateProjD3DStyle( float verticalFov, float aspect, float zNear, float zFar, idRenderMatrix& out )
+{
+	float yScale = 1.0f / tanf( 0.5f * verticalFov );
+	float xScale = yScale / aspect;
+	float zScale = 1.0f / ( zFar - zNear );
+	out = idRenderMatrix(
+			  xScale, 0, 0, 0,
+			  0, yScale, 0, 0,
+			  0, 0, zFar * zScale, 1,
+			  0, 0, -zNear * zFar * zScale, 0 );
 }
 
 /*

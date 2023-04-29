@@ -47,53 +47,53 @@ This file contains the following sections:
 
 `RBDOOM-3-BFG is a modernization effort of DOOM-3-BFG.`
 
-RBDOOM-3-BFG is based on DOOM-3-BFG and the goal of this port is to bring DOOM-3-BFG up to latest technology in 2021 making it closer to Doom 2016 while still remaining a DOOM 3 port regarding the gameplay. 
+RBDOOM-3-BFG is based on DOOM-3-BFG and the goal of this port is to bring DOOM-3-BFG up to latest technology in 2023 making it closer to Doom 2016 while still remaining a DOOM 3 port regarding the gameplay. 
 
 I started this project in 2012 and focused on making this code being future proof so other cool projects can build interesting things on top of it without the need to fix a lot of stuff first. Over 40 people all over the world contributed cool patches. Some results are:
 
 ## Gaming / Graphics Related
-* Physically Based Rendering using GGX Cook-Torrence as in other modern engines (UE4, Unity) and 3D authoring tools like Blender 2.93 or Adobe Substance
+* DX12 / Vulkan support through NVRHI (NVIDIA Rendering Hardware Interface) (thanks to Stephen Pridham for major porting effort)
+* Physically Based Rendering using GGX Cook-Torrence as in other modern engines (UE4, Unity) and 3D authoring tools like Blender 3.x or Adobe Substance
 * Baked Global Illumination using Irradiance Volumes and Image Based Lighting that fix the pitch black areas
-* Soft shadows using PCF hardware shadow mapping.
+* Soft shadows using a fat shadow mapping atlas
 	All 3 light types (point, spot, parallel/sun) are supported which means parallel lights (sun) use
 	scene independent cascaded shadow mapping.
 * True internal 64 bit HDR lighting with filmic ACES tone mapping and gamma-correct rendering in linear RGB space
-* Enhanced Subpixel Morphological Antialiasing as a cheap alternative for MSAA and that works well with HDR. For more information see "Anti-Aliasing Methods in CryENGINE 3" and the docs at http://www.iryoku.com/smaa/
+* Temporal Antialiasing (TAA) as a cheap alternative for MSAA and that works well with HDR and also improves PBR lighting
 * Filmic post process effects like Chromatic Aberration and Dithering
-* Screen Space Ambient Occlusion http://graphics.cs.williams.edu/papers/SAOHPG12/ used to only dim down the Global Illumination contribution like in the Frostbite engine
+* Screen Space Ambient Occlusion used to only dim down the Global Illumination contribution like in the Frostbite engine
 * Bink video playback through libbinkdec (thanks to Daniel Gibson) or FFmpeg (thanks to Carl Kenner)
 * Cinematic sequences can be skipped (thanks to Biel Bestué de Luna)
 * Netcode fixes to allow multiplayer sessions to friends with +connect <ip of friend> (manual port forwarding required)
 
 ## Programming and Code Quality
-* Flexible build system using CMake allowing to add optional features like Vulkan rendering, FFmpeg for videos or OpenAL for sound
+* Flexible build system using CMake allowing to add optional features like FFmpeg for videos or OpenAL for sound
 * Linux support for both GCC and Clang with a proper SDL 2 OS layer including gamepad support
-* Win64 support and Visual Studio support up to VS 2019
-* macOS support (updated in 2021 thanks to Stephen Saunders)
+* Win64 support and Visual Studio support up to VS 2019-2022
+* macOS support (updated in 2023 thanks to Stephen Saunders)
 * OpenAL Soft sound backend primarily developed for Linux but works on Windows as well
 * Sourcecode cleanup using the Artistic Style C++ beautifier to ensure the Git diffs and logs are clean
 * Fixed tons of warnings using the Clang compiler
 * Fast compile times using precompiled header support which allows to compile the entire engine and builtin tools in less than 30 seconds on a Ryzen 9
 * Although not really supported but runs on exotic hardware like MIPS64, PPC64, ARM64 and E2K architectures
-* Updated idRenderLog to support RenderDoc and Nvidia's Nsight and only issue OpenGL or Vulkan debug commands if the debug extensions are detected. Reference: https://devblogs.nvidia.com/best-practices-gpu-performance-events/
+* Updated idRenderLog with new markers to support RenderDoc and Nvidia's Nsight
 
 ## Modding Support
-RBDOOM-3-BFG allows mod editing and has many tiny fixes so custom content can be put into mod directories and the engine accepts it like vanilla Doom 3. DOOM 3 BFG wasn't designed for actual development or modding support. Many things like reading anything outside of the packed resource files was not supported. I also fixed many things in the renderer like r_showTris.
+RBDOOM-3-BFG allows mod editing and has many tiny fixes so custom content can be put into mod directories and the engine accepts it like vanilla Doom 3.
 
 * TrenchBroom Mapping Support - see more information in the TrenchBroom section
 * New PBR related material keywords like basecolormap, normalmap, rmaomap
 * invertGreen( normalmap.png ) material keyword to allow flipping the Y-Axis for tangent space normal maps 
-* PNG image support
+* glTF2 .glb model support for static and skinned models (thanks to Harrie van Ginneken)
+* Changed dmap to support compiling maps straight from glTF2 .glb models instead of .map files using a new polygon based workflow
 * Collada .DAE model support in addition to .ase and .lwo for static map models
 * Wavefront OBJ model support to make it easier getting static models from Blender/Maya/3D Studio Max into TrenchBroom
-* Added back dmap and aas compilers (mapping tools, thanks to Pat Raynor) and improved them to work with TrenchBroom
+* Added back dmap and aas compilers (mapping tools, thanks to Pat Raynor) and improved them to work with TrenchBroom and Blender
 * Added in-engine Flash debugging tools and new console variables
-* Added Steel Storm 2 Engine render demo fixes
-* Merged LordHavoc's image compression progress bar which shows up in the map loading screen
-  when loading and compressing new images from mods
 * Added support for Mikkelsen tangent space standard for new assets (thanks to Stephen Pridham)
 * Bumped the static vertex cache limit of 31 MB to roughly ~ 128 MB to help with some custom models and maps by the Doom 3 community
 * com_showFPS bigger than 1 uses ImGui to show more detailed renderer stats like the original console prints with r_speeds
+* Native C++ AI & Weapons framework instead of Doomscript in the IcedHellfire mod by Justin Marshall (mods/icedhellfire branch)
 
 If you want to start mod from a directory, you should first specify your mod directory adding the following command to the launcher:
 
@@ -109,16 +109,10 @@ You can fork RBDOOM-3-BFG and create a new renamed binary that includes all requ
 
 If you want to see what is planned or in progress in a Trello/Kanban style manner look here: [RBDOOM-3-BFG projects](https://github.com/RobertBeckebans/RBDOOM-3-BFG/projects)
 
-Very certain short term goals are to port and extend some improvements from Justin Marshall's [Iced-Hellfire-Dev](https://github.com/jmarshall23/Doom3BFG) branch:
-* Assimp -> MD5 converter pipeline to generate .md5mesh/.md5anim files from any FBX, DAE, glTF2 files
-* Improve MD5 files with a new Version 11 that allows to store normals for better control of smoothing groups
-* Native C++ weapons code
-* Native C++ AI & monsters code
-* Quake 3 gladiator multiplayer bot
-
-Other short term goals:
-* DX12/Vulkan renderer backend using the [NVIDIA Rendering Hardware Interface](https://github.com/NVIDIAGameWorks/nvrhi) by Stephen Pridham which will lead the path to advanced Ray Tracing techniques
+Short term goals:
+* Finish last remaining bugs of the DX12/Vulkan renderer backend using the [NVIDIA Rendering Hardware Interface](https://github.com/NVIDIAGameWorks/nvrhi)
 * Optional RmlUI support as an alternative to Flash
+* Add Raytracing for accelerating the probe baking and optionally adding realtime global illumination
 
 ---
 # May or may not ".plan" <a name="plan2"></a>
@@ -126,7 +120,7 @@ Other short term goals:
 * Add [Volumetric Lighting](http://www.alexandre-pestana.com/volumetric-lights/)
 * Explore Screen Space Global Illumination with Christoph Schieds' A-SVGF realtime denoising because A-SVGF works really well in Q2RTX
 * Update texture compression based on [Basis Universal GPU Texture and Texture Video Compression Codec](https://github.com/binomialLLC/basis_universal)
-* Replace collision detection and physics with PhysX 4.1
+* Replace collision detection and physics with PhysX 5
 
 ---
 # Renderer Features Explained <a name="render"></a>
@@ -141,7 +135,7 @@ PBR allows artists to create textures that are based on real world measured colo
 
 ***RBDOOM-3-BFG only supports the standard PBR Roughness/Metallic workflow.***
 
-Adding PBR is a requirement to make the new content look the same in RBDOOM-3-BFG as in Blender 2.9x with Cycles or Eevee and Substance Designer. PBR became the standard material authoring since 2014. With RBDOOM-3-BFG modders can work with modern tools and expect that their content looks as expected.
+Adding PBR is a requirement to make the new content look the same in RBDOOM-3-BFG as in Blender 3.x with Cycles or Eevee and Substance Designer. PBR became the standard material authoring since 2014. With RBDOOM-3-BFG modders can work with modern tools and expect that their content looks as expected.
 
 The PBR implementation is restricted to standard PBR using the Roughness/Metallic workflow for now. Specialized rendering paths for skin, clothes and vegetation will be in future releases.
 
@@ -345,18 +339,18 @@ The first top band is the original signal. The second shows just 8 blocks and if
 ***The goal of the TrenchBroom support is to make mapping for RBDOOM-3-BFG as easy as for Quake 1.***
 
 Mapping for Doom 3 BFG using TrenchBroom requires an extended unofficial build that is bundled with the official RBDOOM-3-BFG 7z package.
-You can find the customized version under tools/trenchbroom/.
+You can find the customized TrenchBroomBFG version under tools/trenchbroom/.
 
-More information about this custom TrenchBroom and the source code is here:
+More information about this custom TrenchBroomBFG and the source code is here:
 
-https://github.com/RobertBeckebans/TrenchBroom
+https://github.com/RobertBeckebans/TrenchBroomBFG
 
 Doom 3 BFG also requires some extensions in order to work with TrenchBroom. 
 The Quake 1/2/3 communities already adopted the Valve 220 .map format in the BSP compilers and I did the same with dmap in RBDOOM-3-BFG.
 
-### TrenchBroom speficic Changes
+### TrenchBroomBFG speficic Changes
 * idMapFile and dmap were changed to support the Valve 220 .map format to aid mapping with TrenchBroom
-* Added exportFGD `[nomodels]` console command which exports all def/*.def entityDef declarations to base/exported/_tb/ as Forge Game Data files. TrenchBroom has native support to read those files https://developer.valvesoftware.com/wiki/FGD.
+* Added exportFGD `[nomodels]` console command which exports all def/*.def entityDef declarations to base/_tb/fgd/ as Forge Game Data files. TrenchBroom has native support to read those files https://developer.valvesoftware.com/wiki/FGD.
 If the nomodels argument is not given then it will also export all needed models by entity declarations to base/_tb/ as Wavefront OBJ files.
 * Support ***angles*** keyword again for TrenchBroom like in Quake 3
 * Added cmd convertMapToValve220 `<map>`
@@ -375,7 +369,7 @@ RBDOOM-3-BFG/base/              | Doom 3 BFG media directory ( models, textures,
 RBDOOM-3-BFG/neo/               | RBDOOM-3-BFG source code ( renderer, game code for multiple games, OS layer, etc. )
 RBDOOM-3-BFG/build/             | Build folder for CMake
 RBDOOM-3-BFG/tools/blender/     | Blender scripts for level mapping (TBD in release packages)
-RBDOOM-3-BFG/tools/trenchbroom  | TrenchBroom level editor customized for DOOM 3 and RBDOOM-3-BFG
+RBDOOM-3-BFG/tools/trenchbroom  | TrenchBroomBFG level editor customized for DOOM 3 and RBDOOM-3-BFG
 RBDOOM-3-BFG/tools/darkradiant  | DarkRadiant level editor with an additional config for RBDOOM-3-BFG
 RBDOOM-3-BFG/tools/runtimedeps  | Visual Studio C++ Redistributables if you have problems to start the engine or the tools
 RBDOOM-3-BFG/tools/bfgpakexlorer| BFG Resource File Manager by George Kalampokis aka Mr.GK
@@ -400,13 +394,6 @@ any other Steam features.
 ## Bink Video playback
 The RBDOOM-3-BFG Edition GPL Source Code release includes functionality for rendering Bink Videos through FFmpeg or libbinkdec.
 
-## Back End Rendering of Stencil Shadows
-The RBOOM-3-BFG Edition GPL Source Code release includes functionality enabling rendering
-of stencil shadows via the "depth fail" method, a functionality commonly known as "Carmack's Reverse".
-
-This method was patented by Creative Labs and has finally expired on 2019-10-13.
-(see https://patents.google.com/patent/US6384822B1/en for expiration status)
-
 ---
 # License <a name="license"></a>
 See LICENSE.md for the GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
@@ -422,12 +409,10 @@ This project's GitHub.net Git repository can be checked out through Git with the
 
 	> git clone --recursive https://github.com/RobertBeckebans/RBDOOM-3-BFG.git
 
-The parameter --recursive is only required if you want to build RBDOOM-3-BFG with Vulkan support.
-
 Existing repositories can be updated manually:
 
 	> git submodule init
-	> git submodule update
+	> git submodule update --recursive
 
 
 
@@ -435,17 +420,14 @@ Existing repositories can be updated manually:
 ---
 # Compiling on Windows <a name="compile_windows"></a>
 
-1. Download and install the Visual Studio 2017 Community Edition.
+1. Download and install the Visual Studio 2022 Community Edition.
 
-2. **Only for Windows 7 builds**: Download and install the DirectX SDK (June 2010)
-	http://www.microsoft.com/en-us/download/details.aspx?id=6812
+2. Download and install the latest CMake and make sure cmake.exe is added to your global or user PATH.
 
-3. Download and install the latest CMake.
+3. Generate the VS2022 projects using CMake by doubleclicking a matching configuration .bat file in the neo/ folder.
+Recommended in this case is `cmake-vs2022-64bit-no-ffmpeg.bat`
 
-4. Generate the VS2017 projects using CMake by doubleclicking a matching configuration .bat file in the neo/ folder.
-Recommended in this case is `cmake-vs2017-64bit-windows10.bat`
-
-5. Use the VS2017 solution to compile what you need:
+4. Use the VS2022 solution to compile what you need:
 	RBDOOM-3-BFG/build/RBDoom3BFG.sln
 	
 
@@ -459,7 +441,9 @@ Recommended in this case is `cmake-vs2017-64bit-windows10.bat`
 ---
 # Compiling on Linux <a name="compile_linux"></a>
 
-1. You need the following dependencies in order to compile RBDoom3BFG with all features:
+1. Go to https://github.com/microsoft/DirectXShaderCompiler and download the DXC binaries for Linux and put them into your local PATH.
+
+2. You need the following dependencies in order to compile RBDoom3BFG with all features:
 
 	On Debian or Ubuntu:
 
@@ -479,12 +463,12 @@ Recommended in this case is `cmake-vs2017-64bit-windows10.bat`
 
 	You don't need FFmpeg to be installed. You can turn it off by adding -DFFMPEG=OFF and -DBINKDEC=ON to the CMake options. It is enabled by default because the bundled libbinkdec is slow during development if compiled for Debug mode.
 
-2. Generate the Makefiles using CMake:
+3. Generate the Makefiles using CMake:
 
 		> cd neo/
-		> ./cmake-eclipse-linux-profile.sh
+		> ./cmake-linux-release.sh
 	
-3. Compile RBDOOM-3-BFG targets with
+4. Compile RBDOOM-3-BFG targets with
 
 		> cd ../build
 		> make
@@ -501,20 +485,24 @@ Recommended in this case is `cmake-vs2017-64bit-windows10.bat`
 		> sudo port install cmake libsdl2 +universal openal-soft +universal (for universal arch libraries)
 		
 	You don't need FFmpeg to be installed. You can turn it off by adding -DFFMPEG=OFF and -DBINKDEC=ON to the CMake options. For debug builds FFmpeg is enabled by default because the bundled libbinkdec is slow during development if compiled for Debug mode.  For release, retail and universal builds FFmpeg is disabled and libbinkdec is enabled by default.
+	
+	The Vulkan SDK 1.3.231.1 or later must be installed and can be obtained from https://vulkan.lunarg.com/sdk/home#mac
 
 3. Generate the Makefiles using CMake:
 
 	For command line builds:
 
 		> cd neo/
-		> ./cmake-macos-opengl-release.sh
+		> ./cmake-macos-release.sh
 	
 	For Xcode builds:
 	
 		> cd neo/
-		> ./cmake-xcode-opengl-release.sh	
+		> ./cmake-xcode-release.sh	
 		or
-		> ./cmake-xcode-opengl-universal.sh (universal build on macOS Big Sur / Xcode 12.2 or later)
+		> ./cmake-xcode-universal.sh (universal build on macOS Big Sur / Xcode 12.2 or later)
+	
+	Xcode release and universal builds now automatically package the executable into a macOS app bundle, defining an Info.plist file and copying the base directory and custom icon into the application bundle's Contents/Resources folder.  This is controlled by adding -DMACOSX_BUNDLE=ON to the CMake options.
 	
 	Depending on which package manager you install (Homebrew or MacPorts) you may need to change the openal-soft library and include paths specified in the cmake shell scripts.  For single architecture builds (debug, release, retail) the default openal-soft paths are set for Homebrew on x86, while for universal builds the default paths are set for MacPorts on x86 or Apple Silicon.  If you want to build using the single architecture shell scripts (debug, release, retail) on Apple Silicon, you will need to change the openal-soft paths from `/usr/local/...` to either `/opt/homebrew/...` (Homebrew) or `/opt/local/...` (MacPorts).
 	
@@ -525,7 +513,7 @@ Recommended in this case is `cmake-vs2017-64bit-windows10.bat`
 		> cd ../build
 		> make
 	
-	For Xcode builds double click on RBDOOM-3-BFG/xcode-opengl-\<buildtype\>/RBDoom3BFG.xcodeproj and start the build. The generated Xcode project file is pre-configured with the correct targets and build settings.
+	For Xcode builds double click on RBDOOM-3-BFG/xcode-\<buildtype\>/RBDoom3BFG.xcodeproj and start the build. The generated Xcode project file is pre-configured with the correct targets and build settings.
 
 ---
 # Installation, Getting the Game Data, Running the Game <a name="installation"></a>
@@ -578,7 +566,7 @@ Once Wine is installed and configured on your system install Doom 3 BFG edition 
 
 Once this is complete, by default you can find your Doom 3 BFG "base/" directory at ".wine/drive_c/GOG\ Games/DOOM\ 3\ BFG/base".
 
-Note that you may want to add the following line to the bottom of the default.cfg in whatever "base/" directory you use:
+Note that you may want to create a autoexec.cfg file in whatever "base/" directory you use with the following content:
 
 * set sys_lang "english"
 
@@ -618,15 +606,15 @@ Anyway:
 		* _common.crc
 		* (etc)
 		 
-5. On macOS the RBDoom3BFG executable will also search for game data within an app bundle's relative path ../Resources/base and, as a last resort, within the absolute path /Applications/RBDoom-3-BFG.app/Contents/Resources/base.  In addition, if you want the game to be standalone without dependencies on pre-installed dynamic libs, you can use macdylibbundler to bundle all external dylib dependencies into the app bundle (see https://github.com/auriamg/macdylibbundler or simply install via "brew install dylibbundler" or "sudo port install dylibbundler").  For example, the following command will copy all external dynamic library dependencies to the Contents/libs directory of the game's app bundle and adjust the rpaths within the RBDoom3BFG executable and copied dylibs.
+5. On macOS the RBDoom3BFG executable will also search for game data within an app bundle's Contents/Resources/base folder, and as a last resort, within the absolute path /Applications/RBDoom3BFG.app/Contents/Resources/base.  In addition, if you want the game to be standalone without dependencies on pre-installed dynamic libs, you can use macdylibbundler to bundle all external dylib dependencies into the app bundle (see https://github.com/auriamg/macdylibbundler or simply install via "brew install dylibbundler" or "sudo port install dylibbundler").  For example, the following command will copy all external dylib dependencies to the Contents/libs directory of the game's app bundle and adjust the rpaths within the RBDoom3BFG executable and copied dylibs.
 
-		> dylibbundler -od -b -x RBDoom-3-BFG.app/Contents/MacOS/RBDoom3BFG -d RBDoom-3-BFG.app/Contents/libs/
+		> dylibbundler -od -b -x RBDoom3BFG.app/Contents/MacOS/RBDoom3BFG -d RBDoom3BFG.app/Contents/libs/
 
-	After running dylibbundler you must re-sign the modified executable and dylibs if planning to run on **Apple Silicon** machines.  The output of dylibbundler will indicate which dylibs (if any) require re-signing.  This code signing step is not needed for x86-based Macs.
+	After running dylibbundler you may need to re-sign the modified executable and dylibs if planning to run on **Apple Silicon** machines.  Newer versions of dylibbundler now do this automatically.  The output of dylibbundler will indicate which executable and dylibs (if any) require re-signing.  This code signing step is not needed for x86-based Macs.
 
-		> codesign -s - --force RBDoom-3-BFG.app/Contents/libs/lib<modified-by-dylibbundler>.dylib
+		> codesign -s - --force RBDoom3BFG.app/Contents/libs/lib<modified-by-dylibbundler>.dylib
 		...
-		> codesign -s - --force RBDoom-3-BFG.app/Contents/MacOS/RBDoom3BFG
+		> codesign -s - --force RBDoom3BFG.app/Contents/MacOS/RBDoom3BFG
 
 6. Run the game by executing the RBDoom3BFG executable.
 
@@ -641,12 +629,12 @@ Anyway:
 ## Gaming Related
 Name                                   | Description
 :--------------------------------------| :------------------------------------------------
+r_graphicsAPI                          | Default DX12, can be either DX12 or Vulkan on Windows
 r_antiAliasing                         | Different Anti-Aliasing modes
-r_useShadowMapping [0 or 1]            | Use soft shadow mapping instead of hard stencil shadows
-r_hdrAutoExposure [0 or 1]             | Adaptive tonemapping with HDR. This allows to have very bright or very dark scenes but the camera will adapt to it so the scene won't loose details. Default is 0
-r_exposure [0 .. 1]                    | Default 0.5, Controls brightness and affects HDR -> sRGB Rec. 709 exposure key. This is what you change in the video brightness options
-r_useSSAO [0 .. 1]                     | Use Screen Space Ambient Occlusion to darken the corners in the scene
+r_exposure [0 .. 1]                    | Default 0.5, controls brightness and affects HDR -> sRGB Rec. 709 exposure key. This is what you change in the video brightness options
+r_useSSAO [0 .. 1]                     | Use Screen Space Ambient Occlusion to darken the corners in the scene and give it more depth
 r_useFilmicPostProcessing [0, 1]       | Apply several post process effects to mimic a filmic look
+r_forceAmbient                         | Default 0.5, controls additional brightness by Global Illumination 
 
 ## Modding Support
 Name                              | Description
@@ -658,31 +646,23 @@ bakeLightGrids [`<switches>`...]       | `<Switches>` limit[num] : max probes pe
 exportScriptEvents                     | Command: Generates a new script/doom_events.script that reflects all registered class events in the idClass C++ system. The gamecode still needs to be extended to add the original comments of the events
 exportFGD `[nomodels]`                 | Command: Exports all entity defs to base/_tb/*.fgd for usage in convertMapToValve220 `<map>`           | 
 exportImagesToTrenchBroom              | Command: Decompresses and saves all TB relevant .bimage images to base/_tb/*.png files
-exportModelsToTrenchBroom              | Command: Saves all .base|.blwo|.bmd5mesh models to base/_tb/*.obj files
-exportEntityDefsToBlender              | Command: Exports all entity and model defs to exported/entities.json for usage in Blender
-before loading a map.
+exportModelsToTrenchBroom              | Command: Saves all binarized models to base/_tb/*.obj files
+convertMapToValve220 `<map>`           | Command: Saves *_valve220.map version of the given map. This makes it editable with TrenchBroomBFG. 
+convertMapQuakeToDoom `<map>`          | Command: Expects a Quake 1 .map in the Valve220 format and does some Doom 3 specific fixes
+makeZooMapForModels                    | Command: Makes a Source engine style zoo map with mapobject/models like .blwo, .base et cetera and saves it to maps/zoomaps/zoo_models.map. This helps mappers to get a good overview of the trememdous amount of custom models available in Doom 3 BFG by sorting them into categories and arranging them in 3D. It also filters models so that only modular models are picked that can be reused in new maps.
+exportEntityDefsToBlender              | Command: Exports all entity and model defs to base/_bl/entities.json for usage in Blender before loading a map.
 exportMapToOBJ                         | Command: Convert .map file to .obj/.mtl
 postLoadExportFlashAtlas               | Cvar: Set to 1 at startup to dump the Flash images to exported/swf/
 postLoadExportFlashToSWF               | Cvar: Set to 1 at startup to dump the Flash .bswf files as .swf (WIP)
 postLoadExportFlashToJSON              | Cvar: Set to 1 at startup to dump the Flash .bswf files as .json. Can be reimported into the engine and imported into Blender for inspection
 swf_show                               | Cvar: Draws the bounding box of instanced Flash sprites in red and their names
 
-convertMapToJSON mapfile               | Command: Convert .map file to new .json map format with polygons instead of brushes. This was easy because the original .map format is only an array of entities and each entity has a simple dictionary for its values. This JSON format contains all level data and can be imported and exported to Blender without loosing any data. The new DMap can also compile map files with the .json suffix like regular maps.
-<img src="https://i.imgur.com/2k9IvJC.png" width="384"> 
-
-
-
 
 ---
 # Known Issues <a name="issues"></a>
 
-* Some lights cause shadow acne with shadow mapping
-* Some shadows might almost disappear due to the shadow filtering or look off ("Peter panning" problem)
-* [HDR] MSAA anti-aliasing modes don't work with HDR: Use SMAA with r_antiAliasing 1
-* [Vulkan] **Vulkan backend is unfinished in general**
-* [Vulkan] Shadow Mapping is not supported yet
-* [Vulkan] HDR is not supported yet and GI looks bad because it requires HDR and linear RGB color space
-* [Vulkan] Post processing and SMAA is not supported yet
+* Some lights cause shadow acne with shadow mapping or look off ("Peter panning" problem).
+* Some shadows in the original campaigns might almost disappear due to bad light properties like light center near outside of the bounding box. This has been partially fixed by patching those light entities.
 
 ---
 # Bug Reports <a name="reports"></a>
@@ -706,18 +686,18 @@ You can find your qconsole.log on Windows in C:\Users\<your user name>\Saved Gam
 # FAQ <a name="faq"></a>
 
 **Q**: Why bother with DOOM-3-BFG in 2021?
-**A**: It is fun, period. Doom 3 is from 2004 but is still an impressive and entertaining game. In 2011 id Software added lot stuff from the development of Rage like its own Flash SWF and ActionScript 2 interpreter, proper support for gamepads and widescreens. It also combines the gamecode for Doom 3 and its missionpacks and runs it in a seperate thread and it has many multithreaded rendering optimizations. 
+**A**: It is fun, period. Doom 3 is from 2004 but it is still an impressive and entertaining game. In 2011 id Software added many results from the development of Rage like its own Flash SWF and ActionScript 2 interpreter, proper support for gamepads and widescreens. It also combines the gamecode for Doom 3 and its missionpacks and runs it in a seperate thread and it has many multithreaded rendering optimizations. 
 DOOM-3 and DOOM-3-BFG are some of the most transparent games available where you can open all files and inspect how the game was built.
 Unlike Quake 1-3, DOOM-3-BFG shipped with all level .map sources for 47 single player maps.
 There is plenty of stuff you can learn from it like solid run & gun core gameplay, AI, animations, client/server multiplayer, level design or simple and elegant engine design.
 
-**Q**: Why bother with DOOM-3-BFG in 2022?
-**A**: The engine compiles faster than opening a project in Unity.
+**Q**: Why bother with DOOM-3-BFG in 2023?
+**A**: The engine compiles faster than opening a project in Unity. Maybe you just appreciate that it doesn't require more than 300 MB of RAM and 1024 MB of VRAM while running a complex game like Doom 3.
 
 **Q**: Can I use this engine to make a commercial game?
-**A**: You can but don't bother me to give you free support and you probably should use Unreal Engine 4. I am a full time game developer and usually don't have time for any free support.
+**A**: You can but don't bother me to give you free support and you probably should use Unreal Engine 4/5. I am a full time game developer and usually don't have time for any free support. I recommend that you have moderate C++ skills even if you are an artist. Technical designers (coders who became artists) might benefit most from this engine. Keep in mind that the GPL license will lock you out of the console markets because you can't use proprietary APIs covered by NDAs. However you can sell your game on Steam without problems.
 
-However some people already work on total conversions and there is a community on the id Tech 4 Discord server where you can ask questions and get some support:
+Some people already work on total conversions and there is a community on the id Tech 4 Discord server where you can ask questions and get some support:
 https://discord.gg/Q3E9rUFnnP
 
 **Q**: How do I know what code you've changed?
