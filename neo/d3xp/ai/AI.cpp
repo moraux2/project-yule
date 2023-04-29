@@ -6585,7 +6585,7 @@ idAI::GetClosestPlayerEnemy
 idPlayer* idAI::GetClosestPlayerEnemy( void )
 {
 	idPlayer* closestPlayer = NULL;
-	float shortestDist = idMath::INFINITY;
+	float shortestDist = idMath::INFINITUM;
 	idPlayer* player;
 	float dist;
 	idVec3		delta;
@@ -6620,7 +6620,7 @@ idAI::GetClosestPlayer
 idPlayer* idAI::GetClosestPlayer( void )
 {
 	idPlayer* closestPlayer = NULL;
-	float shortestDist = idMath::INFINITY;
+	float shortestDist = idMath::INFINITUM;
 	idPlayer* player;
 	float dist;
 	idVec3		delta;

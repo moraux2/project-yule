@@ -2225,7 +2225,7 @@ idThread::Event_GetClosestPlayer
 void idThread::Event_GetClosestPlayer( const idVec3& pos )
 {
 	idPlayer* closestPlayer = NULL;
-	float shortestDist = idMath::INFINITY;
+	float shortestDist = idMath::INFINITUM;
 	idPlayer* player;
 	float dist;
 	idVec3	delta;
