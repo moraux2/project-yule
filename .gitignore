@@ -49,3 +49,7 @@ neo/.kdev4
 neo/neo.kdev4
 neo/.idea/
 neo/cmake-build-*/
+
+neo/d3xp/gamesys/GameTypeInfo.h
+neo/d3xp/gamesys/GameTypeInfo.cpp
+
