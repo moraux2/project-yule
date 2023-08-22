@@ -90,7 +90,11 @@ be called directly in the foreground thread for comparison.
 */
 int idGameThread::Run()
 {
-	OPTICK_THREAD( "idGameThread" );
+	if( com_smp.GetBool() )
+	{
+		// SRS - label thread in smp mode only, otherwise CPU frame number is missing
+		OPTICK_THREAD( "idGameThread" );
+	}
 
 	commonLocal.frameTiming.startGameTime = Sys_Microseconds();
 
@@ -437,10 +441,10 @@ void idCommonLocal::UpdateScreen( bool captureToImage, bool releaseMouse )
 	}
 
 	// this should exit right after vsync, with the GPU idle and ready to draw
+	frameTiming.startRenderTime = Sys_Microseconds();   // SRS - Added frame timing for out-of-sequence updates (e.g. used in timedemo "twice" mode)
 	const emptyCommand_t* cmd = renderSystem->SwapCommandBuffers( &time_frontend, &time_backend, &time_shadows, &time_gpu, &stats_backend, &stats_frontend );
 
 	// get the GPU busy with new commands
-	frameTiming.startRenderTime = Sys_Microseconds();   // SRS - Added frame timing for out-of-sequence updates (e.g. used in timedemo "twice" mode)
 	renderSystem->RenderCommandBuffers( cmd );
 	frameTiming.finishRenderTime = Sys_Microseconds();  // SRS - Added frame timing for out-of-sequence updates (e.g. used in timedemo "twice" mode)
 

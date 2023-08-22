@@ -35,7 +35,7 @@
 #include <sys/DeviceManager.h>
 
 #include <nvrhi/vulkan.h>
-// SRS - optionally needed for VK_MVK_MOLTENVK_EXTENSION_NAME and MoltenVK runtime config visibility
+// SRS - optionally needed for MoltenVK runtime config visibility
 #if defined(__APPLE__) && defined( USE_MoltenVK )
 	#include <MoltenVK/vk_mvk_moltenvk.h>
 
@@ -53,6 +53,8 @@
 
 	idCVar r_vmaDeviceLocalMemoryMB( "r_vmaDeviceLocalMemoryMB", "256", CVAR_INTEGER | CVAR_INIT, "Size of VMA allocation block for gpu memory." );
 #endif
+
+idCVar r_preferFastSync( "r_preferFastSync", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "Prefer Fast Sync/no-tearing in place of VSync off/tearing (Vulkan only)" );
 
 // Define the Vulkan dynamic dispatcher - this needs to occur in exactly one cpp file in the program.
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
@@ -179,10 +181,6 @@ private:
 	{
 		// instance
 		{
-#if defined(__APPLE__) && defined( USE_MoltenVK )
-			// SRS - needed for using MoltenVK configuration on macOS (if USE_MoltenVK defined)
-			VK_MVK_MOLTENVK_EXTENSION_NAME,
-#endif
 			VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
 		},
 		// layers
@@ -191,12 +189,9 @@ private:
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 			VK_KHR_MAINTENANCE1_EXTENSION_NAME,
-#if defined(__APPLE__)
-#if defined( VK_KHR_portability_subset )
-			VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
-#endif
-			VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
-			VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+#if defined(__APPLE__) && defined( VK_KHR_portability_subset )
+			// SRS - This is required for using the MoltenVK portability subset implementation on macOS
+			VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 #endif
 		},
 	};
@@ -227,6 +222,9 @@ private:
 			VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
 			VK_NV_MESH_SHADER_EXTENSION_NAME,
 			VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME,
+#if USE_OPTICK
+			VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
+#endif
 			VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 		},
 	};
@@ -280,9 +278,13 @@ private:
 
 	nvrhi::EventQueryHandle m_FrameWaitQuery;
 
-	// SRS - flag indicating support for eFifoRelaxed surface presentation (r_swapInterval = 1) mode
-	bool enablePModeFifoRelaxed = false;
+	// SRS - flags indicating support for various Vulkan surface presentation modes
+	bool enablePModeMailbox = false;		// r_swapInterval = 0 (defaults to eImmediate if not available)
+	bool enablePModeImmediate = false;		// r_swapInterval = 0 (defaults to eFifo if not available)
+	bool enablePModeFifoRelaxed = false;	// r_swapInterval = 1 (defaults to eFifo if not available)
 
+	// SRS - flag indicating support for presentation timing via VK_GOOGLE_display_timing extension
+	bool displayTimingEnabled = false;
 
 private:
 	static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(
@@ -559,14 +561,12 @@ bool DeviceManager_VK::pickPhysicalDevice()
 		auto surfaceFmts = dev.getSurfaceFormatsKHR( m_WindowSurface );
 		auto surfacePModes = dev.getSurfacePresentModesKHR( m_WindowSurface );
 
-		if( surfaceCaps.minImageCount > m_DeviceParams.swapChainBufferCount ||
-				( surfaceCaps.maxImageCount < m_DeviceParams.swapChainBufferCount && surfaceCaps.maxImageCount > 0 ) )
-		{
-			errorStream << std::endl << "  - cannot support the requested swap chain image count:";
-			errorStream << " requested " << m_DeviceParams.swapChainBufferCount << ", available " << surfaceCaps.minImageCount << " - " << surfaceCaps.maxImageCount;
-			deviceIsGood = false;
-		}
+		// SRS/Ricardo Garcia rg3 - clamp swapChainBufferCount to the min/max capabilities of the surface
+		m_DeviceParams.swapChainBufferCount = Max( surfaceCaps.minImageCount, m_DeviceParams.swapChainBufferCount );
+		m_DeviceParams.swapChainBufferCount = surfaceCaps.maxImageCount > 0 ? Min( m_DeviceParams.swapChainBufferCount, surfaceCaps.maxImageCount ) : m_DeviceParams.swapChainBufferCount;
 
+		/* SRS - Don't check extent here since window manager surfaceCaps may restrict extent to something smaller than requested
+			   - Instead, check and clamp extent to window manager surfaceCaps during swap chain creation inside createSwapChain()
 		if( surfaceCaps.minImageExtent.width > requestedExtent.width ||
 				surfaceCaps.minImageExtent.height > requestedExtent.height ||
 				surfaceCaps.maxImageExtent.width < requestedExtent.width ||
@@ -578,6 +578,7 @@ bool DeviceManager_VK::pickPhysicalDevice()
 			errorStream << " - " << surfaceCaps.maxImageExtent.width << "x" << surfaceCaps.maxImageExtent.height;
 			deviceIsGood = false;
 		}
+		*/
 
 		bool surfaceFormatPresent = false;
 		for( const vk::SurfaceFormatKHR& surfaceFmt : surfaceFmts )
@@ -596,11 +597,10 @@ bool DeviceManager_VK::pickPhysicalDevice()
 			deviceIsGood = false;
 		}
 
-		if( ( find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eImmediate ) == surfacePModes.end() ) ||
-				( find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eFifo ) == surfacePModes.end() ) )
+		if( find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eFifo ) == surfacePModes.end() )
 		{
-			// can't find the required surface present modes
-			errorStream << std::endl << "  - does not support the requested surface present modes";
+			// this should never happen since eFifo is mandatory according to the Vulkan spec
+			errorStream << std::endl << "  - does not support the required surface present modes";
 			deviceIsGood = false;
 		}
 
@@ -776,6 +776,10 @@ bool DeviceManager_VK::createDevice()
 		{
 			sync2Supported = true;
 		}
+		else if( ext == VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME )
+		{
+			displayTimingEnabled = true;
+		}
 	}
 
 	std::unordered_set<int> uniqueQueueFamilies =
@@ -826,6 +830,9 @@ bool DeviceManager_VK::createDevice()
 
 #if defined(__APPLE__) && defined( VK_KHR_portability_subset )
 	auto portabilityFeatures = vk::PhysicalDevicePortabilitySubsetFeaturesKHR()
+#if USE_OPTICK
+							   .setEvents( true )
+#endif
 							   .setImageViewFormatSwizzle( true );
 
 	void* pNext = &portabilityFeatures;
@@ -863,6 +870,9 @@ bool DeviceManager_VK::createDevice()
 							.setTimelineSemaphore( true )
 							.setShaderSampledImageArrayNonUniformIndexing( true )
 							.setBufferDeviceAddress( bufferAddressSupported )
+#if USE_OPTICK
+							.setHostQueryReset( true )
+#endif
 							.setPNext( pNext );
 
 	auto layerVec = stringSetToVector( enabledExtensions.layers );
@@ -908,8 +918,10 @@ bool DeviceManager_VK::createDevice()
 						   &imageFormatProperties );
 	m_DeviceParams.enableImageFormatD24S8 = ( ret == vk::Result::eSuccess );
 
-	// SRS - Determine if "smart" (r_swapInterval = 1) vsync mode eFifoRelaxed is supported by device and surface
+	// SRS/rg3 - Determine which Vulkan surface present modes are supported by device and surface
 	auto surfacePModes = m_VulkanPhysicalDevice.getSurfacePresentModesKHR( m_WindowSurface );
+	enablePModeMailbox = find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eMailbox ) != surfacePModes.end();
+	enablePModeImmediate = find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eImmediate ) != surfacePModes.end();
 	enablePModeFifoRelaxed = find( surfacePModes.begin(), surfacePModes.end(), vk::PresentModeKHR::eFifoRelaxed ) != surfacePModes.end();
 
 	// stash the renderer string
@@ -998,6 +1010,11 @@ bool DeviceManager_VK::createSwapChain()
 		vk::ColorSpaceKHR::eSrgbNonlinear
 	};
 
+	// SRS - Clamp swap chain extent within the range supported by the device / window surface
+	auto surfaceCaps = m_VulkanPhysicalDevice.getSurfaceCapabilitiesKHR( m_WindowSurface );
+	m_DeviceParams.backBufferWidth = idMath::ClampInt( surfaceCaps.minImageExtent.width, surfaceCaps.maxImageExtent.width, m_DeviceParams.backBufferWidth );
+	m_DeviceParams.backBufferHeight = idMath::ClampInt( surfaceCaps.minImageExtent.height, surfaceCaps.maxImageExtent.height, m_DeviceParams.backBufferHeight );
+
 	vk::Extent2D extent = vk::Extent2D( m_DeviceParams.backBufferWidth, m_DeviceParams.backBufferHeight );
 
 	std::unordered_set<uint32_t> uniqueQueues =
@@ -1009,6 +1026,22 @@ bool DeviceManager_VK::createSwapChain()
 	std::vector<uint32_t> queues = setToVector( uniqueQueues );
 
 	const bool enableSwapChainSharing = queues.size() > 1;
+
+	// SRS/rg3 - set up Vulkan present mode based on vsync setting and available surface features
+	vk::PresentModeKHR presentMode;
+	switch( m_DeviceParams.vsyncEnabled )
+	{
+		case 0:
+			presentMode = enablePModeMailbox && r_preferFastSync.GetBool() ? vk::PresentModeKHR::eMailbox :
+						  ( enablePModeImmediate ? vk::PresentModeKHR::eImmediate : vk::PresentModeKHR::eFifo );
+			break;
+		case 1:
+			presentMode = enablePModeFifoRelaxed ? vk::PresentModeKHR::eFifoRelaxed : vk::PresentModeKHR::eFifo;
+			break;
+		case 2:
+		default:
+			presentMode = vk::PresentModeKHR::eFifo;	// eFifo always supported according to Vulkan spec
+	}
 
 	auto desc = vk::SwapchainCreateInfoKHR()
 				.setSurface( m_WindowSurface )
@@ -1023,7 +1056,7 @@ bool DeviceManager_VK::createSwapChain()
 				.setPQueueFamilyIndices( enableSwapChainSharing ? queues.data() : nullptr )
 				.setPreTransform( vk::SurfaceTransformFlagBitsKHR::eIdentity )
 				.setCompositeAlpha( vk::CompositeAlphaFlagBitsKHR::eOpaque )
-				.setPresentMode( m_DeviceParams.vsyncEnabled > 0 ? ( m_DeviceParams.vsyncEnabled == 2 || !enablePModeFifoRelaxed ? vk::PresentModeKHR::eFifo : vk::PresentModeKHR::eFifoRelaxed ) : vk::PresentModeKHR::eImmediate )
+				.setPresentMode( presentMode )
 				.setClipped( true )
 				.setOldSwapchain( nullptr );
 
@@ -1201,11 +1234,17 @@ bool DeviceManager_VK::CreateDeviceAndSwapChain()
 
 #undef CHECK
 
+	OPTICK_GPU_INIT_VULKAN( ( VkDevice* )&m_VulkanDevice, ( VkPhysicalDevice* )&m_VulkanPhysicalDevice, ( VkQueue* )&m_GraphicsQueue, ( uint32_t* )&m_GraphicsQueueFamily, 1, nullptr );
+
 	return true;
 }
 
 void DeviceManager_VK::DestroyDeviceAndSwapChain()
 {
+	OPTICK_SHUTDOWN();
+
+	m_VulkanDevice.waitIdle();
+
 	m_FrameWaitQuery = nullptr;
 
 	for( int i = 0; i < m_SwapChainImages.size(); i++ )
@@ -1285,12 +1324,30 @@ void DeviceManager_VK::EndFrame()
 
 void DeviceManager_VK::Present()
 {
+	OPTICK_GPU_FLIP( m_SwapChain );
+	OPTICK_CATEGORY( "Vulkan_Present", Optick::Category::Wait );
+
+	void* pNext = nullptr;
+#if USE_OPTICK
+	// SRS - if display timing enabled, define the presentID for labeling the Optick GPU VSync / Present queue
+	vk::PresentTimeGOOGLE presentTime = vk::PresentTimeGOOGLE()
+										.setPresentID( idLib::frameNumber - 1 );
+	vk::PresentTimesInfoGOOGLE presentTimesInfo = vk::PresentTimesInfoGOOGLE()
+			.setSwapchainCount( 1 )
+			.setPTimes( &presentTime );
+	if( displayTimingEnabled )
+	{
+		pNext = &presentTimesInfo;
+	}
+#endif
+
 	vk::PresentInfoKHR info = vk::PresentInfoKHR()
 							  .setWaitSemaphoreCount( 1 )
 							  .setPWaitSemaphores( &m_PresentSemaphore )
 							  .setSwapchainCount( 1 )
 							  .setPSwapchains( &m_SwapChain )
-							  .setPImageIndices( &m_SwapChainIndex );
+							  .setPImageIndices( &m_SwapChainIndex )
+							  .setPNext( pNext );
 
 	const vk::Result res = m_PresentQueue.presentKHR( &info );
 	assert( res == vk::Result::eSuccess || res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eSuboptimalKHR );
@@ -1313,6 +1370,8 @@ void DeviceManager_VK::Present()
 	{
 		if constexpr( NUM_FRAME_DATA > 2 )
 		{
+			OPTICK_CATEGORY( "Vulkan_Sync3", Optick::Category::Wait );
+
 			// SRS - For triple buffering, sync on previous frame's command queue completion
 			m_NvrhiDevice->waitEventQuery( m_FrameWaitQuery );
 		}
@@ -1322,6 +1381,8 @@ void DeviceManager_VK::Present()
 
 		if constexpr( NUM_FRAME_DATA < 3 )
 		{
+			OPTICK_CATEGORY( "Vulkan_Sync2", Optick::Category::Wait );
+
 			// SRS - For double buffering, sync on current frame's command queue completion
 			m_NvrhiDevice->waitEventQuery( m_FrameWaitQuery );
 		}

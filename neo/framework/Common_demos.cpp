@@ -301,7 +301,6 @@ idCommonLocal::TimeRenderDemo
 */
 void idCommonLocal::TimeRenderDemo( const char* demoName, bool twice, bool quit )
 {
-	extern idCVar com_smp;
 	idStr demo = demoName;
 
 	StartPlayingRenderDemo( demo );
@@ -310,19 +309,14 @@ void idCommonLocal::TimeRenderDemo( const char* demoName, bool twice, bool quit 
 	{
 		timeDemo = TD_YES;                      // SRS - Set timeDemo to TD_YES to disable time demo playback pause when window not in focus
 
-		bool smp_mode = com_smp.GetBool();
-		com_smp.SetBool( false );                // SRS - First pass of timedemo is effectively in com_smp == 0 mode, so set this for ImGui timings to be correct
-
 		while( readDemo )
 		{
 			BusyWait();                         // SRS - BusyWait() calls UpdateScreen() which draws and renders out-of-sequence but still supports frame timing
-			commonLocal.frameTiming.finishSyncTime_EndFrame = Sys_Microseconds();
 			commonLocal.mainFrameTiming = commonLocal.frameTiming;
 			// ** End of current logical frame **
 
 			// ** Start of next logical frame **
-			commonLocal.frameTiming.startSyncTime = Sys_Microseconds();
-			commonLocal.frameTiming.finishSyncTime = commonLocal.frameTiming.startSyncTime;
+			commonLocal.frameTiming.finishSyncTime = Sys_Microseconds();
 			commonLocal.frameTiming.startGameTime = commonLocal.frameTiming.finishSyncTime;
 
 			AdvanceRenderDemo( true );          // SRS - Advance demo commands to manually run the next game frame during first pass of the timedemo
@@ -330,8 +324,6 @@ void idCommonLocal::TimeRenderDemo( const char* demoName, bool twice, bool quit 
 
 			eventLoop->RunEventLoop( false );   // SRS - Run event loop (with no commands) to allow keyboard escape to cancel first pass of the timedemo
 		}
-
-		com_smp.SetBool( smp_mode );         // SRS - Restore original com_smp mode before second pass of timedemo which runs within normal rendering loop
 
 		StartPlayingRenderDemo( demo );
 	}

@@ -448,12 +448,18 @@ void R_SetNewMode( const bool fullInit )
 			case ANTI_ALIASING_MSAA_4X:
 				parms.multiSamples = 4;
 				break;
+#elif defined( _MSC_VER )			// SRS: #pragma warning is MSVC specific
+#pragma warning( push )
+#pragma warning( disable : 4065 )	// C4065: switch statement contains 'default' but no 'case'
 #endif
 
 			default:
 				parms.multiSamples = 1;
 				break;
 		}
+#if !ID_MSAA && defined( _MSC_VER )
+#pragma warning( pop )
+#endif
 
 		if( i == 0 )
 		{
@@ -838,7 +844,8 @@ bool R_ReadPixelsRGB8( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nvrh
 #endif
 
 	// fix alpha
-	for( int i = 0; i < ( desc.width * desc.height ); i++ )
+	// SRS - changed to uint32_t for type consistency
+	for( uint32_t i = 0; i < ( desc.width * desc.height ); i++ )
 	{
 		data[ i * 4 + 3 ] = 0xff;
 	}
@@ -952,7 +959,8 @@ bool R_ReadPixelsRGB16F( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nv
 	}
 #endif
 
-	for( int i = 0; i < ( desc.width * desc.height ); i++ )
+	// SRS - changed to uint32_t for type consistency
+	for( uint32_t i = 0; i < ( desc.width * desc.height ); i++ )
 	{
 		outData[ i * 3 + 0 ] = data[ i * 4 + 0 ];
 		outData[ i * 3 + 1 ] = data[ i * 4 + 1 ];
@@ -966,7 +974,8 @@ bool R_ReadPixelsRGB16F( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nv
 	const idVec3 LUMINANCE_LINEAR( 0.299f, 0.587f, 0.144f );
 	idVec3 rgb;
 
-	for( int i = 0; i < ( desc.width * desc.height ); i++ )
+	// SRS - changed to uint32_t for type consistency
+	for( uint32_t i = 0; i < ( desc.width * desc.height ); i++ )
 	{
 		rgb.x = F16toF32( outData[ i * 3 + 0 ] );
 		rgb.y = F16toF32( outData[ i * 3 + 1 ] );
@@ -990,7 +999,8 @@ bool R_ReadPixelsRGB16F( nvrhi::IDevice* device, CommonRenderPasses* pPasses, nv
 
 	if( isCorrupted )
 	{
-		for( int i = 0; i < ( desc.width * desc.height ); i++ )
+		// SRS - changed to uint32_t for type consistency
+		for( uint32_t i = 0; i < ( desc.width * desc.height ); i++ )
 		{
 			outData[ i * 3 + 0 ] = F32toF16( 0 );
 			outData[ i * 3 + 1 ] = F32toF16( 0 );
@@ -2165,8 +2175,6 @@ idRenderSystemLocal::Shutdown
 */
 void idRenderSystemLocal::Shutdown()
 {
-	extern idCVar com_smp;
-
 	common->Printf( "idRenderSystem::Shutdown()\n" );
 
 	fonts.DeleteContents();
@@ -2199,8 +2207,8 @@ void idRenderSystemLocal::Shutdown()
 	UnbindBufferObjects();
 
 	// SRS - wait for fence to hit before freeing any resources the GPU may be using, otherwise get Vulkan validation layer errors on shutdown
-	// SRS - skip this step if we are in Doom 3 mode (com_smp = -1) which has already finished and presented
-	if( com_smp.GetInteger() != -1 )
+	// SRS - skip this step if we are in a Doom Classic game
+	if( common->GetCurrentGame() == DOOM3_BFG )
 	{
 		backend.GL_BlockingSwapBuffers();
 	}
