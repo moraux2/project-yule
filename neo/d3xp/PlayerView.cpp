@@ -472,7 +472,8 @@ void idPlayerView::SingleView( const renderView_t* view, idMenuHandler_HUD* hudM
 	}
 
 	// draw screen blobs
-	if( !pm_thirdPerson.GetBool() && !g_skipViewEffects.GetBool() )
+	// Unlike Doom 3, it displays the HUD over the third person view by default, as that's the POV mainly used in the game.
+	if (!g_skipViewEffects.GetBool())
 	{
 		if( !player->spectating )
 		{

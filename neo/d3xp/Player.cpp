@@ -10412,7 +10412,7 @@ void idPlayer::CalculateViewWeaponPos( idVec3& origin, idMat3& axis )
 idPlayer::OffsetThirdPersonView
 ===============
 */
-void idPlayer::OffsetThirdPersonView( float angle, float range, float height, bool clip )
+void idPlayer::OffsetThirdPersonView( float angle, float range, float height, float right, bool clip )
 {
 	idVec3			view;
 	idVec3			focusAngles;
@@ -10440,7 +10440,11 @@ void idPlayer::OffsetThirdPersonView( float angle, float range, float height, bo
 
 	focusPoint = origin + angles.ToForward() * THIRD_PERSON_FOCUS_DISTANCE;
 	focusPoint.z += height;
-	view = origin;
+
+	idMat3 orientationMatrix = angles.ToMat3();
+	idVec3 relativePosition = origin + -orientationMatrix[1] * right;
+
+	view = relativePosition;
 	view.z += 8 + height;
 
 	angles.pitch *= 0.5f;
@@ -10644,12 +10648,12 @@ void idPlayer::CalculateRenderView()
 		}
 		else if( pm_thirdPerson.GetBool() )
 		{
-			OffsetThirdPersonView( pm_thirdPersonAngle.GetFloat(), pm_thirdPersonRange.GetFloat(), pm_thirdPersonHeight.GetFloat(), pm_thirdPersonClip.GetBool() );
+			OffsetThirdPersonView( pm_thirdPersonAngle.GetFloat(), pm_thirdPersonRange.GetFloat(), pm_thirdPersonHeight.GetFloat(), pm_thirdPersonRight.GetFloat(), pm_thirdPersonClip.GetBool());
 		}
 		else if( pm_thirdPersonDeath.GetBool() )
 		{
 			range = gameLocal.time < minRespawnTime ? ( gameLocal.time + RAGDOLL_DEATH_TIME - minRespawnTime ) * ( 120.0f / RAGDOLL_DEATH_TIME ) : 120.0f;
-			OffsetThirdPersonView( 0.0f, 20.0f + range, 0.0f, false );
+			OffsetThirdPersonView( 0.0f, 20.0f + range, 0.0f, 0.0f, false );
 		}
 		else
 		{
