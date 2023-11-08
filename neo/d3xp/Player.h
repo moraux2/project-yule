@@ -524,7 +524,9 @@ public:
 	void					WeaponFireFeedback( const idDict* weaponDef );
 
 	float					DefaultFov() const;
+	float					DefaultCamHeight() const;
 	float					CalcFov( bool honorZoom );
+	float					CalcCamHeight(bool honorZoom);
 	void					CalculateViewWeaponPos( idVec3& origin, idMat3& axis );
 	idVec3					GetEyePosition() const;
 	void					GetViewPos( idVec3& origin, idMat3& axis ) const;
@@ -846,6 +848,7 @@ private:
 	idVec3					gibsDir;
 
 	idInterpolate<float>	zoomFov;
+	idInterpolate<float>	zoomHeight;
 	idInterpolate<float>	centerView;
 	bool					fxFov;
 

@@ -1587,6 +1587,7 @@ idPlayer::idPlayer():
 	gibsDir					= vec3_zero;
 
 	zoomFov.Init( 0, 0, 0, 0 );
+	zoomHeight.Init(0, 0, 0, 0);
 	centerView.Init( 0, 0, 0, 0 );
 	fxFov					= false;
 
@@ -1781,6 +1782,7 @@ void idPlayer::Init()
 	landChange				= 0;
 	landTime				= 0;
 	zoomFov.Init( 0, 0, 0, 0 );
+	zoomHeight.Init(0, 0, 0, 0);
 	centerView.Init( 0, 0, 0, 0 );
 	fxFov					= false;
 
@@ -2465,6 +2467,11 @@ void idPlayer::Save( idSaveGame* savefile ) const
 	savefile->WriteFloat( zoomFov.GetStartValue() );
 	savefile->WriteFloat( zoomFov.GetEndValue() );
 
+	savefile->WriteFloat( zoomHeight.GetStartTime());
+	savefile->WriteFloat( zoomHeight.GetDuration());
+	savefile->WriteFloat( zoomHeight.GetStartValue());
+	savefile->WriteFloat( zoomHeight.GetEndValue());
+
 	savefile->WriteFloat( centerView.GetStartTime() );
 	savefile->WriteFloat( centerView.GetDuration() );
 	savefile->WriteFloat( centerView.GetStartValue() );
@@ -2775,6 +2782,15 @@ void idPlayer::Restore( idRestoreGame* savefile )
 	zoomFov.SetStartValue( set );
 	savefile->ReadFloat( set );
 	zoomFov.SetEndValue( set );
+
+	savefile->ReadFloat(set);
+	zoomHeight.SetStartTime(set);
+	savefile->ReadFloat(set);
+	zoomHeight.SetDuration(set);
+	savefile->ReadFloat(set);
+	zoomHeight.SetStartValue(set);
+	savefile->ReadFloat(set);
+	zoomHeight.SetEndValue(set);
 
 	savefile->ReadFloat( set );
 	centerView.SetStartTime( set );
@@ -8891,10 +8907,12 @@ void idPlayer::Think()
 		if( ( usercmd.buttons & BUTTON_ZOOM ) && weapon.GetEntity() )
 		{
 			zoomFov.Init( gameLocal.time, 200.0f, CalcFov( false ), weapon.GetEntity()->GetZoomFov() );
+			zoomHeight.Init(gameLocal.time, 200.0f, CalcCamHeight(false), 0);
 		}
 		else
 		{
 			zoomFov.Init( gameLocal.time, 200.0f, zoomFov.GetCurrentValue( gameLocal.time ), DefaultFov() );
+			zoomHeight.Init(gameLocal.time, 200.0f, zoomHeight.GetCurrentValue(gameLocal.time), DefaultCamHeight());
 		}
 	}
 
@@ -10177,6 +10195,21 @@ float idPlayer::DefaultFov() const
 }
 
 /*
+======================
+idPlayer::DefaultCamHeight
+
+Returns default camera height for when the player is moving about and not aiming.
+======================
+*/
+
+float idPlayer::DefaultCamHeight() const
+{
+	float height;
+	height = pm_thirdPersonHeight.GetFloat();
+	return height;
+}
+
+/*
 ====================
 idPlayer::CalcFov
 
@@ -10217,6 +10250,28 @@ float idPlayer::CalcFov( bool honorZoom )
 	}
 
 	return fov;
+}
+
+/*
+====================
+idPlayer::CalcCamHeight
+
+Same thing but for third person camera height.
+====================
+*/
+float idPlayer::CalcCamHeight(bool honorZoom)
+{
+	float height;
+
+	if (zoomHeight.IsDone(gameLocal.time))
+	{
+		height = (honorZoom && usercmd.buttons & BUTTON_ZOOM) ? 0 : DefaultCamHeight();
+	}
+	else
+	{
+		height = zoomHeight.GetCurrentValue(gameLocal.time);
+	}
+	return height;
 }
 
 /*
@@ -10648,7 +10703,7 @@ void idPlayer::CalculateRenderView()
 		}
 		else if( pm_thirdPerson.GetBool() )
 		{
-			OffsetThirdPersonView( pm_thirdPersonAngle.GetFloat(), pm_thirdPersonRange.GetFloat(), pm_thirdPersonHeight.GetFloat(), pm_thirdPersonRight.GetFloat(), pm_thirdPersonClip.GetBool());
+			OffsetThirdPersonView( pm_thirdPersonAngle.GetFloat(), pm_thirdPersonRange.GetFloat(), zoomHeight.GetCurrentValue(gameLocal.time), pm_thirdPersonRight.GetFloat(), pm_thirdPersonClip.GetBool());
 		}
 		else if( pm_thirdPersonDeath.GetBool() )
 		{
@@ -11356,10 +11411,12 @@ void idPlayer::ClientThink( const int curTime, const float fraction, const bool 
 			if( ( usercmd.buttons & BUTTON_ZOOM ) && weapon.GetEntity() )
 			{
 				zoomFov.Init( gameLocal.time, 200.0f, CalcFov( false ), weapon.GetEntity()->GetZoomFov() );
+				zoomHeight.Init(gameLocal.time, 200.0f, CalcCamHeight(false), 0);
 			}
 			else
 			{
 				zoomFov.Init( gameLocal.time, 200.0f, zoomFov.GetCurrentValue( gameLocal.time ), DefaultFov() );
+				zoomHeight.Init(gameLocal.time, 200.0f, zoomHeight.GetCurrentValue(gameLocal.time), DefaultCamHeight());
 			}
 		}
 	}
