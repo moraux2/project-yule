@@ -6661,6 +6661,8 @@ void idPlayer::UpdateFocus()
 			StartSound( "snd_guienter", SND_CHANNEL_ANY, 0, false, NULL );
 			// HideTip();
 			// HideObjective();
+			//AD: Switch to first person perspective when a GUI is in focus. For now this just manipulates the CVAR.
+			pm_thirdPerson.SetBool(0);
 		}
 	}
 	else if( oldFocus && oldUI )
@@ -6668,6 +6670,8 @@ void idPlayer::UpdateFocus()
 		command = oldUI->Activate( false, gameLocal.time );
 		HandleGuiCommands( oldFocus, command );
 		StartSound( "snd_guiexit", SND_CHANNEL_ANY, 0, false, NULL );
+		//AD: Switch back to third person perspective when a GUI is out of focus. For now this just manipulates the CVAR.
+		pm_thirdPerson.SetBool(1);
 	}
 
 	if( hud )
