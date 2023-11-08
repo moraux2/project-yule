@@ -8,8 +8,9 @@ FEATURES
 - Sudden hacky switches between perspectives when interacting with terminals.
 
 IDEAS
-- General rebalancing of enemies and weapons to more survival horrory.
+- General rebalancing of enemies and weapons to be more survival horrory.
 - New animations for player that work better with the perspective.
+- Proper RE4-style aiming. Laser pointers for almost all guns.
 
 REALLY AMBITIOUS IDEAS
 - New GUIs.
@@ -17,6 +18,7 @@ REALLY AMBITIOUS IDEAS
 
 KNOWN ISSUES
 - In a new game, the camera starts off at shoulder level with Doomguy until you zoom in the camera once, then the camera will lower and raise as normal.
+- Shots are now off-center due to the camera offset.
 - The camera transitions when interacting when terminals are very sudden and jarring.
 
 SUGGESTIONS
