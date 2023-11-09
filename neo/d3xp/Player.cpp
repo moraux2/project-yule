@@ -3756,36 +3756,62 @@ void idPlayer::UpdateConditions()
 	velocity = physicsObj.GetLinearVelocity() - physicsObj.GetPushedLinearVelocity();
 	fallspeed = velocity * physicsObj.GetGravityNormal();
 
-	if( influenceActive )
-	{
-		AI_FORWARD		= false;
-		AI_BACKWARD		= false;
-		AI_STRAFE_LEFT	= false;
-		AI_STRAFE_RIGHT	= false;
-	}
-	else if( gameLocal.time - lastDmgTime < 500 )
-	{
-		forwardspeed = velocity * viewAxis[ 0 ];
-		sidespeed = velocity * viewAxis[ 1 ];
-		AI_FORWARD		= AI_ONGROUND && ( forwardspeed > 20.01f );
-		AI_BACKWARD		= AI_ONGROUND && ( forwardspeed < -20.01f );
-		AI_STRAFE_LEFT	= AI_ONGROUND && ( sidespeed > 20.01f );
-		AI_STRAFE_RIGHT	= AI_ONGROUND && ( sidespeed < -20.01f );
-	}
-	else if( xyspeed > MIN_BOB_SPEED )
-	{
-		AI_FORWARD		= AI_ONGROUND && ( usercmd.forwardmove > 0 );
-		AI_BACKWARD		= AI_ONGROUND && ( usercmd.forwardmove < 0 );
-		AI_STRAFE_LEFT	= AI_ONGROUND && ( usercmd.rightmove < 0 );
-		AI_STRAFE_RIGHT	= AI_ONGROUND && ( usercmd.rightmove > 0 );
+	//AD: Use different logic for determining move animations depending on whether the player is aiming or not.
+	if (usercmd.buttons & BUTTON_ZOOM) {
+		//If aiming... run the normal Doom 3 move animation logic (backpedals, strafes, etc)
+		if (influenceActive)
+		{
+			AI_FORWARD = false;
+			AI_BACKWARD = false;
+			AI_STRAFE_LEFT = false;
+			AI_STRAFE_RIGHT = false;
+		}
+		else if (gameLocal.time - lastDmgTime < 500)
+		{
+			forwardspeed = velocity * viewAxis[0];
+			sidespeed = velocity * viewAxis[1];
+			AI_FORWARD = AI_ONGROUND && (forwardspeed > 20.01f);
+			AI_BACKWARD = AI_ONGROUND && (forwardspeed < -20.01f);
+			AI_STRAFE_LEFT = AI_ONGROUND && (sidespeed > 20.01f);
+			AI_STRAFE_RIGHT = AI_ONGROUND && (sidespeed < -20.01f);
+		}
+		else if (xyspeed > MIN_BOB_SPEED)
+		{
+			AI_FORWARD = AI_ONGROUND && (usercmd.forwardmove > 0);
+			AI_BACKWARD = AI_ONGROUND && (usercmd.forwardmove < 0);
+			AI_STRAFE_LEFT = AI_ONGROUND && (usercmd.rightmove < 0);
+			AI_STRAFE_RIGHT = AI_ONGROUND && (usercmd.rightmove > 0);
+		}
+		else
+		{
+			AI_FORWARD = false;
+			AI_BACKWARD = false;
+			AI_STRAFE_LEFT = false;
+			AI_STRAFE_RIGHT = false;
+		}
 	}
 	else
 	{
-		AI_FORWARD		= false;
-		AI_BACKWARD		= false;
-		AI_STRAFE_LEFT	= false;
-		AI_STRAFE_RIGHT	= false;
+		//If not aiming always play the "move forward" animation, as the character will appear to move forward in whatever direction they're moving anyhow.
+		if (influenceActive)
+		{
+			AI_FORWARD = false;
+			AI_BACKWARD = false;
+			AI_STRAFE_LEFT = false;
+			AI_STRAFE_RIGHT = false;
+		}
+		else if (gameLocal.time - lastDmgTime < 500)
+		{
+			forwardspeed = velocity * viewAxis[0];
+			sidespeed = velocity * viewAxis[1];
+			AI_FORWARD = AI_ONGROUND && forwardspeed != 0.0f;
+		}
+		else if (xyspeed > MIN_BOB_SPEED)
+		{
+			AI_FORWARD = AI_ONGROUND && ((usercmd.forwardmove != 0 || usercmd.rightmove != 0));
+		}
 	}
+
 
 	AI_RUN			= ( usercmd.buttons & BUTTON_RUN ) && ( ( !pm_stamina.GetFloat() ) || ( stamina > pm_staminathreshold.GetFloat() ) );
 	AI_DEAD			= ( health <= 0 );
@@ -7135,9 +7161,20 @@ void idPlayer::UpdateViewAngles()
 
 	UpdateDeltaViewAngles( viewAngles );
 
-	// orient the model towards the direction we're looking
-	SetAngles( idAngles( 0, viewAngles.yaw, 0 ) );
 
+	idVec3 velocity = physicsObj.GetLinearVelocity() - physicsObj.GetPushedLinearVelocity();
+
+	//AD: Only orient the model to where the camera is facing while the player is aiming. 
+	
+	if ((usercmd.buttons) & BUTTON_ZOOM) {
+		SetAngles(idAngles(0, viewAngles.yaw, 0));
+	}
+	else if( velocity != vec3_zero)
+	{
+		//Otherwise angle the character in the direction they're actually moving.
+		float yaw = RAD2DEG(atan2(velocity.y,velocity.x));
+		SetAngles(idAngles(0,yaw,0));
+	}
 	// save in the log for analyzing weapon angle offsets
 	loggedViewAngles[ gameLocal.framenum & ( NUM_LOGGED_VIEW_ANGLES - 1 ) ] = viewAngles;
 }
