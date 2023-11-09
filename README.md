@@ -19,7 +19,7 @@ REALLY AMBITIOUS IDEAS
 KNOWN ISSUES
 - In a new game, the camera starts off at shoulder level with Doomguy until you zoom in the camera once, then the camera will lower and raise as normal.
 - Shots are now off-center due to the camera offset.
-- The camera transitions when interacting when terminals are very sudden and jarring.
+- The camera transitions when interacting with terminals are very sudden and jarring.
 
 SUGGESTIONS
 - I recommend playing with a gamepad, but rebinding the flashlight button to B and binding the Left Trigger to "_zoom", a feature from Classic Doom 3 that was dummied out, but restored here and given a bit more functionality.
