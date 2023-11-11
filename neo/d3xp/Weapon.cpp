@@ -2595,8 +2595,8 @@ idWeapon::PresentWeapon
 */
 void idWeapon::PresentWeapon( bool showViewModel )
 {
-	playerViewOrigin = owner->firstPersonViewOrigin;
-	playerViewAxis = owner->firstPersonViewAxis;
+	playerViewOrigin = owner->renderView->vieworg;
+	playerViewAxis = owner->renderView->viewaxis;
 
 	if( isPlayerFlashlight )
 	{
@@ -3957,20 +3957,20 @@ void idWeapon::GetProjectileLaunchOriginAndAxis( idVec3& origin, idMat3& axis )
 	assert( owner != NULL );
 
 	// calculate the muzzle position
-	if( barrelJointView != INVALID_JOINT && projectileDict.GetBool( "launchFromBarrel" ) )
-	{
+	//if( barrelJointView != INVALID_JOINT && projectileDict.GetBool( "launchFromBarrel" ) )
+	//{
 		// there is an explicit joint for the muzzle
 		// GetGlobalJointTransform( true, barrelJointView, muzzleOrigin, muzzleAxis );
-		GetMuzzlePositionWithHacks( origin, axis );
-	}
-	else
-	{
+	//	GetMuzzlePositionWithHacks( origin, axis );
+	//}
+	///else
+	//{
 		// go straight out of the view
 		origin = playerViewOrigin;
 		axis = playerViewAxis;
-	}
+	//}
 
-	axis = playerViewAxis;	// Fix for plasma rifle not firing correctly on initial shot of a burst fire
+	//axis = playerViewAxis;	// Fix for plasma rifle not firing correctly on initial shot of a burst fire
 }
 
 /*
@@ -4281,17 +4281,17 @@ void idWeapon::Event_LaunchProjectilesEllipse( int num_projectiles, float spread
 	}
 
 	// calculate the muzzle position
-	if( barrelJointView != INVALID_JOINT && projectileDict.GetBool( "launchFromBarrel" ) )
-	{
+	//if( barrelJointView != INVALID_JOINT && projectileDict.GetBool( "launchFromBarrel" ) )
+	//{
 		// there is an explicit joint for the muzzle
-		GetGlobalJointTransform( true, barrelJointView, muzzleOrigin, muzzleAxis );
-	}
-	else
-	{
+	//	GetGlobalJointTransform( true, barrelJointView, muzzleOrigin, muzzleAxis );
+	//}
+	//else
+	//{
 		// go straight out of the view
 		muzzleOrigin = playerViewOrigin;
 		muzzleAxis = playerViewAxis;
-	}
+	//}
 
 	// add some to the kick time, incrementally moving repeat firing weapons back
 	if( kick_endtime < gameLocal.time )
