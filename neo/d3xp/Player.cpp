@@ -8816,8 +8816,9 @@ bool idPlayer::HandleGuiEvents( const sysEvent_t* ev )
 idPlayer::UpdateLaserSight
 ==============
 */
-idCVar	g_laserSightWidth( "g_laserSightWidth", "2.0", CVAR_FLOAT | CVAR_ARCHIVE, "laser sight beam width" );
-idCVar	g_laserSightLength( "g_laserSightLength", "250", CVAR_FLOAT | CVAR_ARCHIVE, "laser sight beam length" );
+//AD: Some adjustments to make the laser sight more useful
+idCVar	g_laserSightWidth( "g_laserSightWidth", "1.0", CVAR_FLOAT | CVAR_ARCHIVE, "laser sight beam width" );
+idCVar	g_laserSightLength( "g_laserSightLength", "500", CVAR_FLOAT | CVAR_ARCHIVE, "laser sight beam length" );
 
 void idPlayer::UpdateLaserSight()
 {
@@ -8830,7 +8831,7 @@ void idPlayer::UpdateLaserSight()
 		return;
 	}
 
-	if( !IsGameStereoRendered() ||
+	if( //!IsGameStereoRendered() ||
 			!weapon.GetEntity()->ShowCrosshair() ||
 			AI_DEAD ||
 			weapon->IsHidden() ||
@@ -8852,7 +8853,9 @@ void idPlayer::UpdateLaserSight()
 	// program the beam model
 
 	// only show in the player's view
-	laserSightRenderEntity.allowSurfaceInViewID = entityNumber + 1;
+	//AD: Quick hack to make the laser sight show in third person.
+
+	laserSightRenderEntity.allowSurfaceInViewID = entityNumber;
 	laserSightRenderEntity.axis.Identity();
 
 	laserSightRenderEntity.origin = muzzleOrigin - muzzleAxis[0] * 2.0f;
